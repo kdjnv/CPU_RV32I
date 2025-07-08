@@ -8,11 +8,9 @@ Dự án viết RTL và mô phỏng một CPU đơn giản sử dụng kiến tr
 - Hướng đến kiểm thử bằng testbench và thực thi chương trình RISC-V dạng `.hex`.
 
 ##cấu trúc 
-///////////////////////////////////////////////////////////
   - CPU_RV32I: chưa mã RTL
   - Simulation: chứa thông tin mô phỏng (các mã lệnh để thử điều được gen ra từ RISC_V GNU toolchain)
      + Image: chứa hình ảnh mô phỏng đượng dạng wave và text
      + Testbench and wave: chưa testbench và file waveform
-///////////////////////////////////////////////////////////
 
 
