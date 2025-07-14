@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "regs.h": "c",
+        "regs_time_base.h": "c",
+        "lib_tpwm.h": "c",
+        "regs_pwm.h": "c",
+        "regs_gpio.h": "c"
+    }
+}

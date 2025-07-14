@@ -1,0 +1,248 @@
+regmap:
+- name: I2C_CONTROL
+  description: I2C Control Register
+  address: '0x00'
+  bitfields:
+  - name: CLKDIV
+    description: Clock divider for SCL
+    reset: 270
+    width: 10
+    lsb: 0
+    access: rw
+    hardware: o
+    enums: []
+  - name: NUMBRX
+    description: Number of bytes to receive (0 means 1)
+    reset: 1
+    width: 3
+    lsb: 10
+    access: rw
+    hardware: o
+    enums: []
+  - name: DUTYSCL
+    description: Duty cycle for SCL (reserved for future use)
+    reset: 5
+    width: 4
+    lsb: 13
+    access: rw
+    hardware: o
+    enums: []
+  - name: RSE
+    description: Register Slave Enable
+    reset: 0
+    width: 1
+    lsb: 17
+    access: rw
+    hardware: o
+    enums: []
+  - name: LENADD
+    description: Slave address length
+    reset: 0
+    width: 2
+    lsb: 18
+    access: rw
+    hardware: o
+    enums: []
+  - name: EN
+    description: Enable I2C
+    reset: 0
+    width: 1
+    lsb: 20
+    access: rw
+    hardware: o
+    enums: []
+  - name: STRX
+    description: Start transmit/receive
+    reset: 0
+    width: 1
+    lsb: 21
+    access: rw
+    hardware: o
+    enums: []
+  - name: MODE
+    description: Transfer mode (0 transmit, 1 receive)
+    reset: 0
+    width: 1
+    lsb: 22
+    access: rw
+    hardware: o
+    enums: []
+  - name: NUMBTX
+    description: Number of bytes to transmit (0 means 1)
+    reset: 1
+    width: 3
+    lsb: 23
+    access: rw
+    hardware: o
+    enums: []
+  - name: RST
+    description: Repeat start condition
+    reset: 0
+    width: 1
+    lsb: 26
+    access: rw
+    hardware: o
+    enums: []
+  - name: SEML
+    description: Sample location on SCL pulse (max 9)
+    reset: 5
+    width: 5
+    lsb: 27
+    access: rw
+    hardware: o
+    enums: []
+
+- name: I2C_STATUS
+  description: I2C Status Register
+  address: '0x04'
+  bitfields:
+  - name: SLAVE_FOUND
+    description: Slave address detected
+    reset: 0
+    width: 1
+    lsb: 0
+    access: ro
+    hardware: i
+    enums: []
+  - name: TXE
+    description: Transmit register empty
+    reset: 1
+    width: 1
+    lsb: 1
+    access: ro
+    hardware: i
+    enums: []
+  - name: TXNE
+    description: Transmit register not empty
+    reset: 0
+    width: 1
+    lsb: 2
+    access: ro
+    hardware: i
+    enums: []
+  - name: RXE
+    description: Receive register empty
+    reset: 1
+    width: 1
+    lsb: 6
+    access: ro
+    hardware: i
+    enums: []
+  - name: RXNE
+    description: Receive register not empty
+    reset: 0
+    width: 1
+    lsb: 7
+    access: ro
+    hardware: i
+    enums: []
+  - name: ERR
+    description: Error flag
+    reset: 0
+    width: 1
+    lsb: 11
+    access: ro
+    hardware: i
+    enums: []
+  - name: BUSY
+    description: I2C busy status
+    reset: 0
+    width: 1
+    lsb: 12
+    access: ro
+    hardware: i
+    enums: []
+  - name: TS
+    description: Transmission complete
+    reset: 0
+    width: 1
+    lsb: 13
+    access: ro
+    hardware: i
+    enums: []
+  - name: RS
+    description: Reception complete
+    reset: 0
+    width: 1
+    lsb: 14
+    access: ro
+    hardware: i
+    enums: []
+
+- name: I2C_SLAVE_ADDR
+  description: I2C Slave Register Address
+  address: '0x08'
+  bitfields:
+  - name: ADDRESS
+    description: 8-bit register address
+    reset: 0
+    width: 10
+    lsb: 0
+    access: rw
+    hardware: o
+    enums: []
+
+- name: I2C_REG_ADDR
+  description: I2C Slave Device Address
+  address: '0x0C'
+  bitfields:
+  - name: ADDS
+    description: 7 to 10-bit slave address
+    reset: 0
+    width: 8
+    lsb: 0
+    access: rw
+    hardware: o
+    enums: []
+
+- name: I2C_TX_DATA_LOW
+  description: I2C Transmit Data Low 32-bit
+  address: '0x10'
+  bitfields:
+  - name: TX_DATA_LOW
+    description: Lower 32-bit of data to transmit
+    reset: 0
+    width: 32
+    lsb: 0
+    access: rw
+    hardware: o
+    enums: []
+
+- name: I2C_TX_DATA_HIGH
+  description: I2C Transmit Data High 32-bit
+  address: '0x14'
+  bitfields:
+  - name: TX_DATA_HIGH
+    description: Upper 32-bit of data to transmit
+    reset: 0
+    width: 32
+    lsb: 0
+    access: rw
+    hardware: o
+    enums: []
+
+- name: I2C_RX_DATA_LOW
+  description: I2C Received Data Low 32-bit
+  address: '0x18'
+  bitfields:
+  - name: RX_DATA_LOW
+    description: Lower 32-bit of received data
+    reset: 0
+    width: 32
+    lsb: 0
+    access: ro
+    hardware: i
+    enums: []
+
+- name: I2C_RX_DATA_HIGH
+  description: I2C Received Data High 32-bit
+  address: '0x1C'
+  bitfields:
+  - name: RX_DATA_HIGH
+    description: Upper 32-bit of received data
+    reset: 0
+    width: 32
+    lsb: 0
+    access: ro
+    hardware: i
+    enums: []

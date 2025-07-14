@@ -1,0 +1,148 @@
+// Created with Corsair v1.0.4
+
+`ifndef __REGS_SPI_VH
+`define __REGS_SPI_VH
+
+`define SPI_BASE_ADDR 2415919104
+`define SPI_DATA_WIDTH 32
+`define SPI_ADDR_WIDTH 32
+
+// SPI_TX_LOW - Transmit data register low (lower 32 bits)
+`define SPI_SPI_TX_LOW_ADDR 32'h0
+`define SPI_SPI_TX_LOW_RESET 32'h0
+
+// SPI_TX_LOW.DATA_LOW - Data to transmit (lower 32 bits)
+`define SPI_SPI_TX_LOW_DATA_LOW_WIDTH 32
+`define SPI_SPI_TX_LOW_DATA_LOW_LSB 0
+`define SPI_SPI_TX_LOW_DATA_LOW_MASK 32'h0
+`define SPI_SPI_TX_LOW_DATA_LOW_RESET 32'h0
+
+
+// SPI_TX_HIGH - Transmit data register high (higher 32 bits)
+`define SPI_SPI_TX_HIGH_ADDR 32'h4
+`define SPI_SPI_TX_HIGH_RESET 32'h0
+
+// SPI_TX_HIGH.DATA_HIGH - Data to transmit (higher 32 bits)
+`define SPI_SPI_TX_HIGH_DATA_HIGH_WIDTH 32
+`define SPI_SPI_TX_HIGH_DATA_HIGH_LSB 0
+`define SPI_SPI_TX_HIGH_DATA_HIGH_MASK 32'h4
+`define SPI_SPI_TX_HIGH_DATA_HIGH_RESET 32'h0
+
+
+// SPI_RX_LOW - Receive data register low (lower 32 bits)
+`define SPI_SPI_RX_LOW_ADDR 32'h8
+`define SPI_SPI_RX_LOW_RESET 32'h0
+
+// SPI_RX_LOW.DATA - Data received (lower 32 bits)
+`define SPI_SPI_RX_LOW_DATA_WIDTH 32
+`define SPI_SPI_RX_LOW_DATA_LSB 0
+`define SPI_SPI_RX_LOW_DATA_MASK 32'h8
+`define SPI_SPI_RX_LOW_DATA_RESET 32'h0
+
+
+// SPI_RX_HIGH - Receive data register high (higher 32 bits)
+`define SPI_SPI_RX_HIGH_ADDR 32'hc
+`define SPI_SPI_RX_HIGH_RESET 32'h0
+
+// SPI_RX_HIGH.DATA - Data received (higher 32 bits)
+`define SPI_SPI_RX_HIGH_DATA_WIDTH 32
+`define SPI_SPI_RX_HIGH_DATA_LSB 0
+`define SPI_SPI_RX_HIGH_DATA_MASK 32'hc
+`define SPI_SPI_RX_HIGH_DATA_RESET 32'h0
+
+
+// CONTROL_REG - SPI Control register
+`define SPI_CONTROL_REG_ADDR 32'h10
+`define SPI_CONTROL_REG_RESET 32'h6d0208
+
+// CONTROL_REG.BPT - Bits per transfer (0 -> 1 bit, 63 -> 64 bits)
+`define SPI_CONTROL_REG_BPT_WIDTH 6
+`define SPI_CONTROL_REG_BPT_LSB 0
+`define SPI_CONTROL_REG_BPT_MASK 32'h10
+`define SPI_CONTROL_REG_BPT_RESET 6'h8
+
+// CONTROL_REG.CPOL - Clock polarity
+`define SPI_CONTROL_REG_CPOL_WIDTH 1
+`define SPI_CONTROL_REG_CPOL_LSB 6
+`define SPI_CONTROL_REG_CPOL_MASK 32'h10
+`define SPI_CONTROL_REG_CPOL_RESET 1'h0
+
+// CONTROL_REG.CPHA - Clock phase
+`define SPI_CONTROL_REG_CPHA_WIDTH 1
+`define SPI_CONTROL_REG_CPHA_LSB 7
+`define SPI_CONTROL_REG_CPHA_MASK 32'h10
+`define SPI_CONTROL_REG_CPHA_RESET 1'h0
+
+// CONTROL_REG.ENSPI - Enable SPI
+`define SPI_CONTROL_REG_ENSPI_WIDTH 1
+`define SPI_CONTROL_REG_ENSPI_LSB 8
+`define SPI_CONTROL_REG_ENSPI_MASK 32'h10
+`define SPI_CONTROL_REG_ENSPI_RESET 1'h0
+
+// CONTROL_REG.CSS - Automatic slave select enable
+`define SPI_CONTROL_REG_CSS_WIDTH 1
+`define SPI_CONTROL_REG_CSS_LSB 9
+`define SPI_CONTROL_REG_CSS_MASK 32'h10
+`define SPI_CONTROL_REG_CSS_RESET 1'h1
+
+// CONTROL_REG.NUMSS - Slave number selection (0~15)
+`define SPI_CONTROL_REG_NUMSS_WIDTH 4
+`define SPI_CONTROL_REG_NUMSS_LSB 11
+`define SPI_CONTROL_REG_NUMSS_MASK 32'h10
+`define SPI_CONTROL_REG_NUMSS_RESET 4'h0
+
+// CONTROL_REG.MSB - MSB first enable
+`define SPI_CONTROL_REG_MSB_WIDTH 1
+`define SPI_CONTROL_REG_MSB_LSB 16
+`define SPI_CONTROL_REG_MSB_MASK 32'h10
+`define SPI_CONTROL_REG_MSB_RESET 1'h1
+
+// CONTROL_REG.STRX - Start transmit/receive
+`define SPI_CONTROL_REG_STRX_WIDTH 1
+`define SPI_CONTROL_REG_STRX_LSB 17
+`define SPI_CONTROL_REG_STRX_MASK 32'h10
+`define SPI_CONTROL_REG_STRX_RESET 1'h0
+
+// CONTROL_REG.DIV - Clock divider
+`define SPI_CONTROL_REG_DIV_WIDTH 10
+`define SPI_CONTROL_REG_DIV_LSB 18
+`define SPI_CONTROL_REG_DIV_MASK 32'h10
+`define SPI_CONTROL_REG_DIV_RESET 10'h1b
+
+// CONTROL_REG.MODE - 0 - Master mode, 1 - Slave mode
+`define SPI_CONTROL_REG_MODE_WIDTH 1
+`define SPI_CONTROL_REG_MODE_LSB 28
+`define SPI_CONTROL_REG_MODE_MASK 32'h10
+`define SPI_CONTROL_REG_MODE_RESET 1'h0
+
+
+// STATUS_REG - SPI Status register
+`define SPI_STATUS_REG_ADDR 32'h14
+`define SPI_STATUS_REG_RESET 32'h0
+
+// STATUS_REG.RXNE - RX not empty (data received)
+`define SPI_STATUS_REG_RXNE_WIDTH 1
+`define SPI_STATUS_REG_RXNE_LSB 0
+`define SPI_STATUS_REG_RXNE_MASK 32'h14
+`define SPI_STATUS_REG_RXNE_RESET 1'h0
+
+// STATUS_REG.TXE - TX empty (ready for transmit)
+`define SPI_STATUS_REG_TXE_WIDTH 1
+`define SPI_STATUS_REG_TXE_LSB 1
+`define SPI_STATUS_REG_TXE_MASK 32'h14
+`define SPI_STATUS_REG_TXE_RESET 1'h0
+
+// STATUS_REG.ERR - Error flag (future use)
+`define SPI_STATUS_REG_ERR_WIDTH 1
+`define SPI_STATUS_REG_ERR_LSB 2
+`define SPI_STATUS_REG_ERR_MASK 32'h14
+`define SPI_STATUS_REG_ERR_RESET 1'h0
+
+// STATUS_REG.BUSY - SPI Busy flag
+`define SPI_STATUS_REG_BUSY_WIDTH 1
+`define SPI_STATUS_REG_BUSY_LSB 4
+`define SPI_STATUS_REG_BUSY_MASK 32'h14
+`define SPI_STATUS_REG_BUSY_RESET 1'h0
+
+
+`endif // __REGS_SPI_VH

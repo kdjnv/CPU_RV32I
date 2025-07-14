@@ -1,0 +1,126 @@
+regmap:
+  - name: Tim_config
+    description: Timer configuration register
+    address: '0x00'
+    bitfields:
+      - name: EN
+        description: Enable timer
+        lsb: 0
+        width: 1
+        access: wo
+        hardware: o
+        reset: 0
+        enums: []
+      - name: AR
+        description: Auto reload when reaching period
+        lsb: 1
+        width: 1
+        access: wo
+        hardware: o
+        reset: 1
+        enums: []
+      - name: DIR
+        description: Count direction (0 = up, 1 = down)
+        lsb: 4
+        width: 1
+        access: wo
+        hardware: o
+        reset: 0
+        enums: []
+      - name: UD
+        description: Update counter with load value
+        lsb: 5
+        width: 1
+        access: wo
+        hardware: o
+        reset: 0
+        enums: []
+
+  - name: Tim_prescaler
+    description: Prescaler register (divides input clock)
+    address: '0x04'
+    bitfields:
+      - name: DIV
+        description: Clock divider value
+        lsb: 0
+        width: 32
+        access: wo
+        hardware: o
+        reset: 27
+        enums: []
+
+  - name: Tim_period
+    description: Timer period register
+    address: '0x08'
+    bitfields:
+      - name: PER
+        description: Counter max value
+        lsb: 0
+        width: 32
+        access: wo
+        hardware: o
+        reset: 65535
+        enums: []
+
+  - name: Tim_counter
+    description: Current counter value
+    address: '0x0C'
+    bitfields:
+      - name: CNT
+        description: Counter current count
+        lsb: 0
+        width: 32
+        access: ro
+        hardware: i
+        reset: 0
+        enums: []
+
+  - name: Tim_status
+    description: Timer status register
+    address: '0x10'
+    bitfields:
+      - name: OF
+        description: Overflow flag
+        lsb: 0
+        width: 1
+        access: ro
+        hardware: i
+        reset: 0
+        enums: []
+      - name: OP
+        description: Over period flag
+        lsb: 1
+        width: 1
+        access: ro
+        hardware: i
+        reset: 0
+        enums: []
+      - name: ERR
+        description: Error flag
+        lsb: 2
+        width: 1
+        access: ro
+        hardware: i
+        reset: 0
+        enums: []
+      - name: LD
+        description: Load done flag
+        lsb: 3
+        width: 1
+        access: ro
+        hardware: i
+        reset: 0
+        enums: []
+
+  - name: Tim_load
+    description: Value to load into counter
+    address: '0x14'
+    bitfields:
+      - name: LOAD
+        description: Counter load value
+        lsb: 0
+        width: 32
+        access: wo
+        hardware: o
+        reset: 0
+        enums: []

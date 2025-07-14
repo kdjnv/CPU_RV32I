@@ -1,0 +1,101 @@
+Archive member included to satisfy reference by file (symbol)
+
+/home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+                              ./main.o (__udivsi3)
+
+Discarded input sections
+
+ .debug_line    0x00000000      0x153 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .debug_line_str
+                0x00000000       0x7f /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .debug_info    0x00000000       0x5f /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .debug_abbrev  0x00000000       0x28 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .debug_aranges
+                0x00000000       0x20 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .debug_str     0x00000000       0xc4 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+mem              0x00000000         0x00002000
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+
+.memory         0x00000000      0xe40
+                0x00000000                        . = 0x0
+ start*(.text)
+ *(.text)
+ .text          0x00000000        0xc ./start.o
+                0x00000000                start
+ .text          0x0000000c      0xcbc ./main.o
+                0x0000000c                TPWM_MakePE
+                0x000000c8                TPWM_MakeCP
+                0x00000184                TPWM_MakeEN
+                0x000001a4                TPWM_MakePOL
+                0x000001d0                TPWM_MakeSEL1
+                0x000001f4                TPWM_MakeSEL2
+                0x00000218                TPWM_MakeSEL3
+                0x0000023c                TPWM_MakeSEL4
+                0x00000260                TPWM_MakeNUM
+                0x0000028c                TPWM_MakeDIV
+                0x0000029c                uart_send_char
+                0x000002d4                uart_send_str
+                0x0000031c                uart_sendint
+                0x000003fc                SPI_send
+                0x00000448                delay_ms
+                0x000004dc                Set_Counter
+                0x00000510                delay_tim_ms
+                0x00000574                delay_tim_us
+                0x000005c0                INIT_I2C
+                0x000006e8                INIT_TPWM
+                0x0000079c                INIT_TBASE
+                0x000007c0                INIT_SPI
+                0x000008d4                INIT_UART
+                0x00000934                Make_address
+                0x00000950                Read_lux
+                0x00000a34                blinkled
+                0x00000a80                main
+ .text          0x00000cc8       0xb4 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+                0x00000cc8                __divsi3
+                0x00000cd0                __hidden___udivsi3
+                0x00000cd0                __udivsi3
+                0x00000d18                __umodsi3
+                0x00000d4c                __modsi3
+ *(*)
+ .data          0x00000d7c        0x0 ./start.o
+ .bss           0x00000d7c        0x0 ./start.o
+ .riscv.attributes
+                0x00000d7c       0x1a ./start.o
+ .data          0x00000d96        0x0 ./main.o
+ .bss           0x00000d96        0x0 ./main.o
+ *fill*         0x00000d96        0x2 
+ .rodata.str1.4
+                0x00000d98       0x26 ./main.o
+ *fill*         0x00000dbe        0x2 
+ .rodata        0x00000dc0       0x1e ./main.o
+ *fill*         0x00000dde        0x2 
+ .sbss          0x00000de0        0xc ./main.o
+                0x00000de0                duty
+                0x00000de4                cnt
+                0x00000de8                ck
+ .sdata         0x00000dec        0x4 ./main.o
+                0x00000dec                lux
+ .comment       0x00000df0       0x19 ./main.o
+                                 0x1a (size before relaxing)
+ .note.GNU-stack
+                0x00000e09        0x0 ./main.o
+ .riscv.attributes
+                0x00000e09       0x1c ./main.o
+ .data          0x00000e25        0x0 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .bss           0x00000e25        0x0 /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+ .riscv.attributes
+                0x00000e25       0x1a /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a(div.o)
+                0x00000e3f                        end = .
+                0x00000e40                        . = ALIGN (0x4)
+ *fill*         0x00000e3f        0x1 
+LOAD ./start.o
+LOAD ./main.o
+LOAD /home/do_phong/opt/riscv32/lib/gcc/riscv32-unknown-elf/15.1.0/libgcc.a
+OUTPUT(firmware.elf elf32-littleriscv)
