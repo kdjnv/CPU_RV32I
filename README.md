@@ -9,8 +9,7 @@ Dự án viết RTL và mô phỏng một CPU đơn giản sử dụng kiến tr
 
 ##cấu trúc 
   - RTL CPU_RV32I: chưa mã RTL
-  - Simulation: chứa thông tin mô phỏng (các mã lệnh để thử điều được gen ra từ RISC_V GNU toolchain)
-    --------------Mô phỏng bao gồm mô phỏng Decoder, ALU_init, Instruction và Data memory------------
+  - Simulation: chứa thông tin mô phỏng (các mã lệnh để thử điều được gen ra từ RISC_V GNU toolchain) -> Mô phỏng bao gồm mô phỏng Decoder, ALU_init, Instruction và Data memory
      + Image: chứa hình ảnh mô phỏng đượng dạng wave và text
      + Testbench and wave: chưa testbench và file waveform
 
