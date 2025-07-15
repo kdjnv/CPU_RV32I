@@ -3,7 +3,7 @@ Integer Computational Instructions
     Integer Register-Immediate Instructions:
         ADDI        Add immediate                               (rd = rs1 + sign_extend(imm))
         SLTI        set less than immediate                     (rd = 1 if rs1 < imm, signed)
-        SLTIU       set Less Than Immediate (Unsigned)          (rd = 1 if rs1 < imm, unsigned)
+        SLTIU       set Less Than Immediate (Unsigned)          (rd = 1 if rs1 < imm, unsigned) SLTU = SNEZ(Set if Not Equal to Zero) when rs1 is x0
         ANDI        logical operation - AND                     (rd = rs1 & sign_extend(imm))
         ORI, XORI   //        //          //      
         SLLI        Shift Left Logical Immediate                (rd = rs1 << shamt)

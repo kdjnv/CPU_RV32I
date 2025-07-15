@@ -1,6 +1,9 @@
 module RV32I_core(
     input           clk,    
-    input           rst
+    input           rst,
+
+    input           uart_rx,
+    output          uart_tx
 );
 
 `define FIVE_STATE_EN
@@ -18,17 +21,33 @@ localparam  Decodeoh            =   5'b0001 <<  ID;
 localparam  Executeoh            =   5'b0001 <<  EX;
 localparam  MemoryAoh           =   5'b0001 <<  MEM;
 localparam  WriteBoh            =   5'b0001 <<  WB;
+
+wire    [31:0 ] memd_ldata, memins_rdata;
+
+reg     [31:0 ] processor_data;
+wire    [31:0 ] rdata_uart;
+wire            s0_sel_mem;
+wire            s3_sel_uart;
+always @(*) begin
+    case({s3_sel_uart, s0_sel_mem})
+        2'b01: processor_data = memd_ldata;
+        2'b10: processor_data = rdata_uart;
+        default: processor_data = 32'h00000000;
+    endcase
+end
+
+
 /*-------------------------------------------------
 The device_select module decodes the upper 4 bits of a 32-bit address to generate select signals for different peripherals in an RV32I-based system. 
 Each peripheral (memory/*, GPIO, I2C, UART, PWM, timer, SPI ...//) is mapped to a unique address region. 
 When the address matches a region, the corresponding select signal is asserted high.
 --------------------------------------------------*/
-wire            s0_sel_mem;
 reg     [31:0 ] mem_addr;
 wire    [31:0 ] memins_addr;
 Device_select DS(
     .addr(mem_addr),
-    .s0_sel_mem(s0_sel_mem)
+    .s0_sel_mem(s0_sel_mem),
+    .s3_sel_uart(s3_sel_uart)
 );
 
 
@@ -91,7 +110,6 @@ The CPU can read from or write to a specified address.
 It is accessed during the load/store stage of instruction execution.
 ---------------------------------------------------*/
 //reg     [31:0 ] mem_addr, memint_addr;
-wire    [31:0 ] memd_ldata, memins_rdata;
 reg     [31:0 ] memd_sdata, memins_wdata;
 reg             memd_lready; 
 wire            memins_read;
@@ -117,8 +135,8 @@ Data_memory #(
     .mem_addr   (mem_addr),
     .mem_ldata  (memd_ldata),
     .mem_sdata  (memd_sdata),
-    .mem_lenable(memd_lready),
-    .mem_mask   (memd_mask & {4{memd_senable}} & {4{s0_sel_mem}})
+    .mem_lenable(memd_lready & insLOAD),
+    .mem_mask   (memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & insSTORE)
 );
 
 //load, store 8bit, 16bit or 32bit
@@ -127,7 +145,6 @@ wire    lsHaftW =   (funct3[0]);
 wire    lsWord  =   (funct3[1]);
 wire    lsSign  =   (!funct3[2]);
 //gen mem_mask and make load data 8bit, 16bit or 32bit
-wire    [3:0]   mem_masks; assign mem_masks = 4'b0001 << mem_addr[1:0]; 
 assign          memd_mask   = 
                     lsWord  ?   4'b1111                         :
                     lsHaftW ?   (mem_addr[1]?4'b1100:4'b0011)  :
@@ -138,16 +155,16 @@ assign          memd_mask   =
 wire    [31:0]  byte_data;
 wire    [31:0]  halfw_data;
 
-assign byte_data = (mem_addr[1:0] == 2'b00) ? memd_ldata[7:0]   :
-                   (mem_addr[1:0] == 2'b01) ? memd_ldata[15:8]  :
-                   (mem_addr[1:0] == 2'b10) ? memd_ldata[23:16] :
-                                               memd_ldata[31:24];
-assign halfw_data = mem_addr[1] ? memd_ldata[31:16] : memd_ldata[15:0];
+assign byte_data = (mem_addr[1:0] == 2'b00) ? processor_data[7:0]   :
+                   (mem_addr[1:0] == 2'b01) ? processor_data[15:8]  :
+                   (mem_addr[1:0] == 2'b10) ? processor_data[23:16] :
+                                               processor_data[31:24];
+assign halfw_data = mem_addr[1] ? processor_data[31:16] : processor_data[15:0];
 
 
 wire    [31:0]  mem_ldmask;     //Mem load data(mask)
 
-assign mem_ldmask = lsWord  ? memd_ldata :
+assign mem_ldmask = lsWord  ? processor_data :
                     lsHaftW ? (lsSign ? {{16{halfw_data[15]}}, halfw_data[15:0]} :
                                         {16'b0, halfw_data[15:0]}) :
                     lsByte  ? (lsSign ? {{24{byte_data[7]}}, byte_data[7:0]} :
@@ -202,6 +219,29 @@ Registers_unit Regunit(
 
 
 
+/*---------------------------------------------------------
+The Universal Asynchronous Receiver Transmitter (UART) enables asynchronous serial communication by transmitting and receiving data over tx and rx lines.
+It supports configurable baud rate and basic control features, providing status flags to indicate transmission and reception states.
+---------------------------------------------------------*/
+uart_ip uart_unit(
+    .clk(clk),
+    .rst(rst),
+
+    .waddr({4'h0, mem_addr[27:0]}),
+    .wdata(memd_sdata),
+    .wen(s3_sel_uart & (|memd_mask) & insSTORE),
+    .wstrb(memd_mask),
+    .wready(),
+    .raddr({4'h0, mem_addr[27:0]}),
+    .ren(s3_sel_uart & memd_lready & insLOAD),
+    .rdata(rdata_uart),
+    .rvalid(),
+
+    .o_uart_tx(uart_tx),
+    .i_uart_rx(uart_rx)
+);
+
+
 /*----------------------------------------------------------
 This processor is organized into five stages:
     1. IF (Instruction Fetch): Fetches the next instruction from instruction memory.
@@ -226,7 +266,7 @@ wire            insALU  =   insALUImm || insALUReg;
     assign memins_addr = PC;
 
     always @(posedge clk) begin
-        if(rst) begin
+        if(!rst) begin
             PC <= INSTR_FIRST;
             PCnext <= INSTR_FIRST;
         end
@@ -246,7 +286,7 @@ wire            insALU  =   insALUImm || insALUReg;
                     (*parallel_case*)
                     case(1'b1)
                         insBRA: begin
-                            PCnext <= flag_branch ? Immediate : PC+4;
+                            PCnext <= flag_branch ? PC + Immediate : PC+4;
                         end
                         insLOAD: begin
                             memd_lready <= 1'b1;
@@ -287,12 +327,13 @@ wire            insALU  =   insALUImm || insALUReg;
                         memd_senable <= 1'b1;
                     end
                     state <= WriteBoh;
+                    
                 end
                 state[WB]   : begin
                     memd_senable <= 1'b0;
                     case(1'b1)
                         insLOAD: begin
-                            data_des <= load_data;
+                            data_des <= mem_ldmask;
                             data_valid <= 1'b1;
                         end
                         insALU: begin
