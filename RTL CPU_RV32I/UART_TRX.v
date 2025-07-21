@@ -32,7 +32,7 @@ Thanh ghi dữ liệu TX
 Thanh ghi dữ liệu RX
 */
 module UART
-	#(parameter	CLOCK = 27_000_000,
+	#(parameter	CLOCK = 2_700_000,
 			BAUD_RATE = 115_200) (
 	input       i_clk,                      //CLOCK hệ thống
     input       i_rst,                      //Reset đồng bộ tích cực thấp
@@ -71,7 +71,7 @@ wire [31:0] BAUDR;
     localparam FRAMES = CLOCK / BAUD_RATE;
 	localparam HALF_FRAME = FRAMES / 2;
     
-    wire [31:0] BAND_CNT = (i_clk_dec*1000_000)/BAUDR;
+    wire [31:0] BAND_CNT = (CLOCK)/BAUDR;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////UART_RX/////////////////////////////////////////////////

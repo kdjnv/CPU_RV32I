@@ -9,6 +9,8 @@ module RV32I_core(
 `define FIVE_STATE_EN
 
 localparam  INSTR_FIRST     =   32'h00000000;
+localparam  VALUE_RESET32   =   32'h00000000;
+localparam  VALUE_RESET     =   0;
 
 localparam  IF              =   0;
 localparam  ID              =   1;
@@ -35,6 +37,13 @@ always @(*) begin
         default: processor_data = 32'h00000000;
     endcase
 end
+
+wire clksys;
+    Gowin_CLKDIV your_instance_name(
+        .clkout(clksys), //output clkout
+        .hclkin(clk), //input hclkin
+        .resetn(rst) //input resetn
+    );
 
 
 /*-------------------------------------------------
@@ -73,28 +82,28 @@ wire    [11:0 ] indcsr;
 
 
 RV32_Decoder Maindecoder(
-        .instr_data(instr_data),
-        .Immediate(Immediate),
-        .insALUImm(insALUImm),
-        .insALUReg(insALUReg),
-        .insLUI(insLUI),
-        .insAUIPC(insAUIPC),
-        .insJAL(insJAL),
-        .insJALR(insJALR),
-        .insBRA(insBRA),
-        .insLOAD(insLOAD),
-        .insSTORE(insSTORE),
-        .insSYS(insSYS),
-        .insFENCE(insFENCE),
-        .funct3(funct3),
-        .funct3oh(funct3oh),
-        .funct7(funct7),
-        .regrs2(regrs2),
-        .regrs1(regrs1),
-        .regrd(regrd),
-        .pred(pred),
-        .succ(succ),
-        .indcsr(indcsr)
+    .instr_data         (instr_data),
+    .Immediate          (Immediate),
+    .insALUImm          (insALUImm),
+    .insALUReg          (insALUReg),
+    .insLUI             (insLUI),
+    .insAUIPC           (insAUIPC),
+    .insJAL             (insJAL),
+    .insJALR            (insJALR),
+    .insBRA             (insBRA),
+    .insLOAD            (insLOAD),
+    .insSTORE           (insSTORE),
+    .insSYS             (insSYS),
+    .insFENCE           (insFENCE),
+    .funct3             (funct3),
+    .funct3oh           (funct3oh),
+    .funct7             (funct7),
+    .regrs2             (regrs2),
+    .regrs1             (regrs1),
+    .regrd              (regrd),
+    .pred               (pred),
+    .succ               (succ),
+    .indcsr             (indcsr)
 );
 
 
@@ -111,32 +120,36 @@ It is accessed during the load/store stage of instruction execution.
 ---------------------------------------------------*/
 //reg     [31:0 ] mem_addr, memint_addr;
 reg     [31:0 ] memd_sdata, memins_wdata;
+wire    [31:0 ] memd_sdatafn;               assign  memd_sdatafn    =   memd_sdata << (mem_addr[1:0]*8);
 reg             memd_lready; 
 wire            memins_read;
 wire    [ 3:0 ] memd_mask, memins_mask;
 reg             memd_senable = 1'b0;
 
 Instruction_memory #(
-    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/Project_I2C/firmware/firmware.hex"),
-    .SIZE       (1024)  //4Kb
+//    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
+    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/Project_I2C/firmware/firmware_instr.hex"),
+    .SIZE       (4096)  //4Kb
 ) ins_mem(
-    .clk        (clk),
+    .clk        (clksys),
     .mem_addr   (memins_addr),
     .mem_rdata  (memins_rdata),
-    .mem_wdata  (memins_wdata), //don't use
+    .mem_wdata  (memins_wdata <<mem_addr[1:0]*8), //don't use
     .mem_renable(memins_read),
     .mem_mask   (memins_mask)   //don't use
 );
 
 Data_memory #(
+    //.MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
+    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/Project_I2C/firmware/firmware_data.hex"),
     .SIZE       (4096)  //16Kb
 ) data_mem(
-    .clk        (clk),
-    .mem_addr   (mem_addr),
+    .clk        (clksys),
+    .mem_addr   ({4'h0, mem_addr[27:0]}),
     .mem_ldata  (memd_ldata),
-    .mem_sdata  (memd_sdata),
+    .mem_sdata  (memd_sdatafn),    //Shift data for store byte or haftw
     .mem_lenable(memd_lready & insLOAD),
-    .mem_mask   (memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & insSTORE)
+    .mem_mask   (memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & {4{insSTORE}})
 );
 
 //load, store 8bit, 16bit or 32bit
@@ -179,7 +192,8 @@ The ALU receives two operands and an operation code, and outputs the result alon
 wire    [31:0 ] result_ALU;
 wire            flag_branch;
 wire    [31:0 ] data_rs1;
-wire    [31:0 ] data_rs2;
+wire    [31:0 ] data_rs2;   
+wire    [31:0 ] data_rs2fn; assign  data_rs2fn  =  (insALUImm)?(((!funct3[1])&funct3[0])?regrs2:Immediate):data_rs2;
 
 ALU_unit ALU(
     .isALUimm   (insALUImm),
@@ -188,7 +202,7 @@ ALU_unit ALU(
     .funct3oh   (funct3oh),
     .funct7     (funct7),
     .rs1        (data_rs1),
-    .rs2        ((insALUImm)?Immediate:data_rs2),
+    .rs2        (data_rs2fn),
     .result     (result_ALU),
     .correct    (flag_branch)
 );
@@ -207,7 +221,7 @@ reg     [31:0 ] data_des;
 reg             data_valid;
 
 Registers_unit Regunit(
-    .clk        (clk), 
+    .clk        (clksys), 
     .rs1        (regrs1),
     .rs2        (regrs2),
     .rd         (regrd),
@@ -224,21 +238,21 @@ The Universal Asynchronous Receiver Transmitter (UART) enables asynchronous seri
 It supports configurable baud rate and basic control features, providing status flags to indicate transmission and reception states.
 ---------------------------------------------------------*/
 uart_ip uart_unit(
-    .clk(clk),
-    .rst(rst),
+    .clk        (clksys),
+    .rst        (rst),
 
-    .waddr({4'h0, mem_addr[27:0]}),
-    .wdata(memd_sdata),
-    .wen(s3_sel_uart & (|memd_mask) & insSTORE),
-    .wstrb(memd_mask),
-    .wready(),
-    .raddr({4'h0, mem_addr[27:0]}),
-    .ren(s3_sel_uart & memd_lready & insLOAD),
-    .rdata(rdata_uart),
-    .rvalid(),
+    .waddr      ({4'h0, mem_addr[27:0]}),
+    .wdata      (memd_sdata),
+    .wen        (s3_sel_uart & (|memd_mask) & insSTORE),
+    .wstrb      (memd_mask),
+    .wready     (),
+    .raddr      ({4'h0, mem_addr[27:0]}),
+    .ren        (s3_sel_uart & memd_lready & insLOAD),
+    .rdata      (rdata_uart),
+    .rvalid     (),
 
-    .o_uart_tx(uart_tx),
-    .i_uart_rx(uart_rx)
+    .o_uart_tx  (uart_tx),
+    .i_uart_rx  (uart_rx)
 );
 
 
@@ -265,10 +279,16 @@ wire            insALU  =   insALUImm || insALUReg;
     assign memins_read = state[IF]; //only Instruction Fetch
     assign memins_addr = PC;
 
-    always @(posedge clk) begin
+    always @(posedge clksys) begin
         if(!rst) begin
             PC <= INSTR_FIRST;
             PCnext <= INSTR_FIRST;
+            data_valid <= VALUE_RESET; 
+            memd_lready <= VALUE_RESET;
+            memd_senable <= VALUE_RESET;
+            data_des <= VALUE_RESET32;
+            memd_sdata <= VALUE_RESET32;
+            state <= Fetchoh;
         end
         else begin
             (*parallel_case*)

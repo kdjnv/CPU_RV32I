@@ -3,10 +3,10 @@ module ALU_unit(
     input           isALUimm,
     input           isALUreg,
     input           isBranch,
-    input   [7:0]   funct3oh,
-    input   [6:0]   funct7,
-    input   [31:0]  rs1,
-    input   [31:0]  rs2,        //Imm 
+    input   [ 7:0 ] funct3oh,
+    input   [ 6:0 ] funct7,
+    input   [31:0 ] rs1,
+    input   [31:0 ] rs2,            //Imm 
     
     output  [31:0]  result,
     output          correct
@@ -15,8 +15,8 @@ module ALU_unit(
 //ALU 
 wire    isALU   =   isALUimm|   isALUreg;
 
-wire    ADD     =   isALU   &   funct3oh[0] &   !funct7[5]; //ADDI or ADD
 wire    SUB     =   isALUreg&   funct3oh[0] &   funct7[5];  //SUB
+wire    ADD     =   isALU   &   funct3oh[0] &   !SUB;       //ADDI or ADD
 wire    AND     =   isALU   &   funct3oh[7];                //ANDI or AND
 wire    OR      =   isALU   &   funct3oh[6];                //ORI or OR
 wire    XOR     =   isALU   &   funct3oh[4];                //XORI or XOR
@@ -27,11 +27,11 @@ wire    SLT     =   isALU   &   funct3oh[2];                //SLTI or SLT
 wire    SLTIU   =   isALU   &   funct3oh[3];                //SLTIU or SLTU
 
 //Sign for compare
-wire   isSigned    =   !(funct3oh[7] | funct3oh[6]);
+wire   isSigned    =   !(funct3oh[7] & funct3oh[6]);
 
 //Compare
 wire    CP  =   rs1 < rs2;                      //Compare unsigned
-wire    CS  =   (rs1[31] ^ rs2[31])?rs1[31]:CP; //Compare signed; 1 = LT; 0 = LT
+wire    CS  =  (rs1[31] ^ rs2[31])?rs1[31]:CP;  //Compare signed; 1 = LT;
 wire    EQ  =   rs1 == rs2;                     //Equal
 wire    LT  =   isSigned?CS:CP;                 //Less than
 wire    GE  =   !LT;                            //Greater than
@@ -51,8 +51,8 @@ assign  result  =   ADD ?   rs1 +   rs2:
                     XOR ?   rs1 ^   rs2:
                     SLL ?   rs1 <<  rs2:        //note shami (SLLI)
                     SRL ?   rs1 >>  rs2:        //note shami (SRLI)
-                    SRA ?   (rs1 >> rs2)|((~(32'hffffffff>>rs2))&{32{rs1[31]}}):        //note shami (SRAI)
-                    SLT ?   (CS?32'd1:32'd0):
-                    SLTIU?  (CP?32'd1:32'd0):32'd0;        
+                    SRA ?  (rs1 >> rs2)|((~(32'hffffffff>>rs2))&{32{rs1[31]}}):        //note shami (SRAI)
+                    SLT ?  (CS?32'd1:32'd0):
+                    SLTIU? (CP?32'd1:32'd0):32'd0;        
 
 endmodule

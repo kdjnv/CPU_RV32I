@@ -1,4 +1,6 @@
-module Data_memory #(parameter SIZE = 4096)(
+module Data_memory #(parameter MEM_FILE = "",
+    parameter SIZE = 4096)(
+
     input           clk,
 
 //Bus
@@ -25,6 +27,7 @@ module Data_memory #(parameter SIZE = 4096)(
         for(i = 4000; i < SIZE; i = i+1) begin
             MEM[i] = 32'h00000000;
         end
+        $readmemh(MEM_FILE,MEM);
     end
     wire    [31:0]  addr_word;   assign addr_word = mem_addr[31:2]; //because MEM 32bit
 

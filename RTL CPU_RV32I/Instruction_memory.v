@@ -14,8 +14,18 @@ module Instruction_memory #(parameter MEM_FILE = "",
 
     wire    [31:0]  addr_word;   assign addr_word = mem_addr[31:2]; //because MEM 32bit
 //Boot
-    (* ram_style = "block" *) reg [31:0] MEM [0:SIZE-1];            //1024 * 4 = 4096 = 4Kb  
+    (* ram_style = "block" *) reg [31:0] MEM [0:SIZE-1];            //1024 * 4 = 4096 = 4Kb 
+    integer i;
     initial begin
+        for(i = 0; i < 2000; i = i+1) begin
+            MEM[i] = 32'h00000000;
+        end
+        for(i = 2000; i < 4000; i = i+1) begin
+            MEM[i] = 32'h00000000;
+        end
+        for(i = 4000; i < SIZE; i = i+1) begin
+            MEM[i] = 32'h00000000;
+        end
         $readmemh(MEM_FILE,MEM);
     end
 

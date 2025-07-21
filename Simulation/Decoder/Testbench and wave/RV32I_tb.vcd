@@ -1,0 +1,1214 @@
+$date
+	Tue Jul 08 09:57:15 2025
+$end
+$version
+	ModelSim Version 10.5b
+$end
+$timescale
+	1ps
+$end
+
+$scope module RV32I_tb $end
+$var reg 1 ! clk $end
+$var reg 1 " rst $end
+$var reg 32 # instr_data [31:0] $end
+$var wire 1 $ Immediate [31] $end
+$var wire 1 % Immediate [30] $end
+$var wire 1 & Immediate [29] $end
+$var wire 1 ' Immediate [28] $end
+$var wire 1 ( Immediate [27] $end
+$var wire 1 ) Immediate [26] $end
+$var wire 1 * Immediate [25] $end
+$var wire 1 + Immediate [24] $end
+$var wire 1 , Immediate [23] $end
+$var wire 1 - Immediate [22] $end
+$var wire 1 . Immediate [21] $end
+$var wire 1 / Immediate [20] $end
+$var wire 1 0 Immediate [19] $end
+$var wire 1 1 Immediate [18] $end
+$var wire 1 2 Immediate [17] $end
+$var wire 1 3 Immediate [16] $end
+$var wire 1 4 Immediate [15] $end
+$var wire 1 5 Immediate [14] $end
+$var wire 1 6 Immediate [13] $end
+$var wire 1 7 Immediate [12] $end
+$var wire 1 8 Immediate [11] $end
+$var wire 1 9 Immediate [10] $end
+$var wire 1 : Immediate [9] $end
+$var wire 1 ; Immediate [8] $end
+$var wire 1 < Immediate [7] $end
+$var wire 1 = Immediate [6] $end
+$var wire 1 > Immediate [5] $end
+$var wire 1 ? Immediate [4] $end
+$var wire 1 @ Immediate [3] $end
+$var wire 1 A Immediate [2] $end
+$var wire 1 B Immediate [1] $end
+$var wire 1 C Immediate [0] $end
+$var wire 1 D insALUImm $end
+$var wire 1 E insALUReg $end
+$var wire 1 F insLUI $end
+$var wire 1 G insAUIPC $end
+$var wire 1 H insJAL $end
+$var wire 1 I insJALR $end
+$var wire 1 J insBRA $end
+$var wire 1 K insLOAD $end
+$var wire 1 L insSTORE $end
+$var wire 1 M insSYS $end
+$var wire 1 N insFENCE $end
+$var wire 1 O funct3 [2] $end
+$var wire 1 P funct3 [1] $end
+$var wire 1 Q funct3 [0] $end
+$var wire 1 R funct3oh [7] $end
+$var wire 1 S funct3oh [6] $end
+$var wire 1 T funct3oh [5] $end
+$var wire 1 U funct3oh [4] $end
+$var wire 1 V funct3oh [3] $end
+$var wire 1 W funct3oh [2] $end
+$var wire 1 X funct3oh [1] $end
+$var wire 1 Y funct3oh [0] $end
+$var wire 1 Z funct3b [3] $end
+$var wire 1 [ funct3b [2] $end
+$var wire 1 \ funct3b [1] $end
+$var wire 1 ] funct3b [0] $end
+$var wire 1 ^ funct7 [6] $end
+$var wire 1 _ funct7 [5] $end
+$var wire 1 ` funct7 [4] $end
+$var wire 1 a funct7 [3] $end
+$var wire 1 b funct7 [2] $end
+$var wire 1 c funct7 [1] $end
+$var wire 1 d funct7 [0] $end
+$var wire 1 e regrs2 [4] $end
+$var wire 1 f regrs2 [3] $end
+$var wire 1 g regrs2 [2] $end
+$var wire 1 h regrs2 [1] $end
+$var wire 1 i regrs2 [0] $end
+$var wire 1 j regrs1 [4] $end
+$var wire 1 k regrs1 [3] $end
+$var wire 1 l regrs1 [2] $end
+$var wire 1 m regrs1 [1] $end
+$var wire 1 n regrs1 [0] $end
+$var wire 1 o regrd [4] $end
+$var wire 1 p regrd [3] $end
+$var wire 1 q regrd [2] $end
+$var wire 1 r regrd [1] $end
+$var wire 1 s regrd [0] $end
+$var wire 1 t pred [3] $end
+$var wire 1 u pred [2] $end
+$var wire 1 v pred [1] $end
+$var wire 1 w pred [0] $end
+$var wire 1 x succ [3] $end
+$var wire 1 y succ [2] $end
+$var wire 1 z succ [1] $end
+$var wire 1 { succ [0] $end
+$var wire 1 | indcsr [11] $end
+$var wire 1 } indcsr [10] $end
+$var wire 1 ~ indcsr [9] $end
+$var wire 1 !! indcsr [8] $end
+$var wire 1 "! indcsr [7] $end
+$var wire 1 #! indcsr [6] $end
+$var wire 1 $! indcsr [5] $end
+$var wire 1 %! indcsr [4] $end
+$var wire 1 &! indcsr [3] $end
+$var wire 1 '! indcsr [2] $end
+$var wire 1 (! indcsr [1] $end
+$var wire 1 )! indcsr [0] $end
+$var wire 1 *! isSigned $end
+
+$scope task print_state $end
+$upscope $end
+
+$scope module dut $end
+$var wire 1 +! rst $end
+$var wire 1 ,! clk $end
+$var wire 1 -! instr_data [31] $end
+$var wire 1 .! instr_data [30] $end
+$var wire 1 /! instr_data [29] $end
+$var wire 1 0! instr_data [28] $end
+$var wire 1 1! instr_data [27] $end
+$var wire 1 2! instr_data [26] $end
+$var wire 1 3! instr_data [25] $end
+$var wire 1 4! instr_data [24] $end
+$var wire 1 5! instr_data [23] $end
+$var wire 1 6! instr_data [22] $end
+$var wire 1 7! instr_data [21] $end
+$var wire 1 8! instr_data [20] $end
+$var wire 1 9! instr_data [19] $end
+$var wire 1 :! instr_data [18] $end
+$var wire 1 ;! instr_data [17] $end
+$var wire 1 <! instr_data [16] $end
+$var wire 1 =! instr_data [15] $end
+$var wire 1 >! instr_data [14] $end
+$var wire 1 ?! instr_data [13] $end
+$var wire 1 @! instr_data [12] $end
+$var wire 1 A! instr_data [11] $end
+$var wire 1 B! instr_data [10] $end
+$var wire 1 C! instr_data [9] $end
+$var wire 1 D! instr_data [8] $end
+$var wire 1 E! instr_data [7] $end
+$var wire 1 F! instr_data [6] $end
+$var wire 1 G! instr_data [5] $end
+$var wire 1 H! instr_data [4] $end
+$var wire 1 I! instr_data [3] $end
+$var wire 1 J! instr_data [2] $end
+$var wire 1 K! instr_data [1] $end
+$var wire 1 L! instr_data [0] $end
+$var wire 1 $ Immediate [31] $end
+$var wire 1 % Immediate [30] $end
+$var wire 1 & Immediate [29] $end
+$var wire 1 ' Immediate [28] $end
+$var wire 1 ( Immediate [27] $end
+$var wire 1 ) Immediate [26] $end
+$var wire 1 * Immediate [25] $end
+$var wire 1 + Immediate [24] $end
+$var wire 1 , Immediate [23] $end
+$var wire 1 - Immediate [22] $end
+$var wire 1 . Immediate [21] $end
+$var wire 1 / Immediate [20] $end
+$var wire 1 0 Immediate [19] $end
+$var wire 1 1 Immediate [18] $end
+$var wire 1 2 Immediate [17] $end
+$var wire 1 3 Immediate [16] $end
+$var wire 1 4 Immediate [15] $end
+$var wire 1 5 Immediate [14] $end
+$var wire 1 6 Immediate [13] $end
+$var wire 1 7 Immediate [12] $end
+$var wire 1 8 Immediate [11] $end
+$var wire 1 9 Immediate [10] $end
+$var wire 1 : Immediate [9] $end
+$var wire 1 ; Immediate [8] $end
+$var wire 1 < Immediate [7] $end
+$var wire 1 = Immediate [6] $end
+$var wire 1 > Immediate [5] $end
+$var wire 1 ? Immediate [4] $end
+$var wire 1 @ Immediate [3] $end
+$var wire 1 A Immediate [2] $end
+$var wire 1 B Immediate [1] $end
+$var wire 1 C Immediate [0] $end
+$var wire 1 D insALUImm $end
+$var wire 1 E insALUReg $end
+$var wire 1 F insLUI $end
+$var wire 1 G insAUIPC $end
+$var wire 1 H insJAL $end
+$var wire 1 I insJALR $end
+$var wire 1 J insBRA $end
+$var wire 1 K insLOAD $end
+$var wire 1 L insSTORE $end
+$var wire 1 M insSYS $end
+$var wire 1 N insFENCE $end
+$var wire 1 O funct3 [2] $end
+$var wire 1 P funct3 [1] $end
+$var wire 1 Q funct3 [0] $end
+$var wire 1 R funct3oh [7] $end
+$var wire 1 S funct3oh [6] $end
+$var wire 1 T funct3oh [5] $end
+$var wire 1 U funct3oh [4] $end
+$var wire 1 V funct3oh [3] $end
+$var wire 1 W funct3oh [2] $end
+$var wire 1 X funct3oh [1] $end
+$var wire 1 Y funct3oh [0] $end
+$var wire 1 Z funct3b [3] $end
+$var wire 1 [ funct3b [2] $end
+$var wire 1 \ funct3b [1] $end
+$var wire 1 ] funct3b [0] $end
+$var wire 1 ^ funct7 [6] $end
+$var wire 1 _ funct7 [5] $end
+$var wire 1 ` funct7 [4] $end
+$var wire 1 a funct7 [3] $end
+$var wire 1 b funct7 [2] $end
+$var wire 1 c funct7 [1] $end
+$var wire 1 d funct7 [0] $end
+$var wire 1 e regrs2 [4] $end
+$var wire 1 f regrs2 [3] $end
+$var wire 1 g regrs2 [2] $end
+$var wire 1 h regrs2 [1] $end
+$var wire 1 i regrs2 [0] $end
+$var wire 1 j regrs1 [4] $end
+$var wire 1 k regrs1 [3] $end
+$var wire 1 l regrs1 [2] $end
+$var wire 1 m regrs1 [1] $end
+$var wire 1 n regrs1 [0] $end
+$var wire 1 o regrd [4] $end
+$var wire 1 p regrd [3] $end
+$var wire 1 q regrd [2] $end
+$var wire 1 r regrd [1] $end
+$var wire 1 s regrd [0] $end
+$var wire 1 t pred [3] $end
+$var wire 1 u pred [2] $end
+$var wire 1 v pred [1] $end
+$var wire 1 w pred [0] $end
+$var wire 1 x succ [3] $end
+$var wire 1 y succ [2] $end
+$var wire 1 z succ [1] $end
+$var wire 1 { succ [0] $end
+$var wire 1 | indcsr [11] $end
+$var wire 1 } indcsr [10] $end
+$var wire 1 ~ indcsr [9] $end
+$var wire 1 !! indcsr [8] $end
+$var wire 1 "! indcsr [7] $end
+$var wire 1 #! indcsr [6] $end
+$var wire 1 $! indcsr [5] $end
+$var wire 1 %! indcsr [4] $end
+$var wire 1 &! indcsr [3] $end
+$var wire 1 '! indcsr [2] $end
+$var wire 1 (! indcsr [1] $end
+$var wire 1 )! indcsr [0] $end
+$var wire 1 *! isSigned $end
+$var wire 1 M! Iimm [31] $end
+$var wire 1 N! Iimm [30] $end
+$var wire 1 O! Iimm [29] $end
+$var wire 1 P! Iimm [28] $end
+$var wire 1 Q! Iimm [27] $end
+$var wire 1 R! Iimm [26] $end
+$var wire 1 S! Iimm [25] $end
+$var wire 1 T! Iimm [24] $end
+$var wire 1 U! Iimm [23] $end
+$var wire 1 V! Iimm [22] $end
+$var wire 1 W! Iimm [21] $end
+$var wire 1 X! Iimm [20] $end
+$var wire 1 Y! Iimm [19] $end
+$var wire 1 Z! Iimm [18] $end
+$var wire 1 [! Iimm [17] $end
+$var wire 1 \! Iimm [16] $end
+$var wire 1 ]! Iimm [15] $end
+$var wire 1 ^! Iimm [14] $end
+$var wire 1 _! Iimm [13] $end
+$var wire 1 `! Iimm [12] $end
+$var wire 1 a! Iimm [11] $end
+$var wire 1 b! Iimm [10] $end
+$var wire 1 c! Iimm [9] $end
+$var wire 1 d! Iimm [8] $end
+$var wire 1 e! Iimm [7] $end
+$var wire 1 f! Iimm [6] $end
+$var wire 1 g! Iimm [5] $end
+$var wire 1 h! Iimm [4] $end
+$var wire 1 i! Iimm [3] $end
+$var wire 1 j! Iimm [2] $end
+$var wire 1 k! Iimm [1] $end
+$var wire 1 l! Iimm [0] $end
+$var wire 1 m! Simm [31] $end
+$var wire 1 n! Simm [30] $end
+$var wire 1 o! Simm [29] $end
+$var wire 1 p! Simm [28] $end
+$var wire 1 q! Simm [27] $end
+$var wire 1 r! Simm [26] $end
+$var wire 1 s! Simm [25] $end
+$var wire 1 t! Simm [24] $end
+$var wire 1 u! Simm [23] $end
+$var wire 1 v! Simm [22] $end
+$var wire 1 w! Simm [21] $end
+$var wire 1 x! Simm [20] $end
+$var wire 1 y! Simm [19] $end
+$var wire 1 z! Simm [18] $end
+$var wire 1 {! Simm [17] $end
+$var wire 1 |! Simm [16] $end
+$var wire 1 }! Simm [15] $end
+$var wire 1 ~! Simm [14] $end
+$var wire 1 !" Simm [13] $end
+$var wire 1 "" Simm [12] $end
+$var wire 1 #" Simm [11] $end
+$var wire 1 $" Simm [10] $end
+$var wire 1 %" Simm [9] $end
+$var wire 1 &" Simm [8] $end
+$var wire 1 '" Simm [7] $end
+$var wire 1 (" Simm [6] $end
+$var wire 1 )" Simm [5] $end
+$var wire 1 *" Simm [4] $end
+$var wire 1 +" Simm [3] $end
+$var wire 1 ," Simm [2] $end
+$var wire 1 -" Simm [1] $end
+$var wire 1 ." Simm [0] $end
+$var wire 1 /" Bimm [31] $end
+$var wire 1 0" Bimm [30] $end
+$var wire 1 1" Bimm [29] $end
+$var wire 1 2" Bimm [28] $end
+$var wire 1 3" Bimm [27] $end
+$var wire 1 4" Bimm [26] $end
+$var wire 1 5" Bimm [25] $end
+$var wire 1 6" Bimm [24] $end
+$var wire 1 7" Bimm [23] $end
+$var wire 1 8" Bimm [22] $end
+$var wire 1 9" Bimm [21] $end
+$var wire 1 :" Bimm [20] $end
+$var wire 1 ;" Bimm [19] $end
+$var wire 1 <" Bimm [18] $end
+$var wire 1 =" Bimm [17] $end
+$var wire 1 >" Bimm [16] $end
+$var wire 1 ?" Bimm [15] $end
+$var wire 1 @" Bimm [14] $end
+$var wire 1 A" Bimm [13] $end
+$var wire 1 B" Bimm [12] $end
+$var wire 1 C" Bimm [11] $end
+$var wire 1 D" Bimm [10] $end
+$var wire 1 E" Bimm [9] $end
+$var wire 1 F" Bimm [8] $end
+$var wire 1 G" Bimm [7] $end
+$var wire 1 H" Bimm [6] $end
+$var wire 1 I" Bimm [5] $end
+$var wire 1 J" Bimm [4] $end
+$var wire 1 K" Bimm [3] $end
+$var wire 1 L" Bimm [2] $end
+$var wire 1 M" Bimm [1] $end
+$var wire 1 N" Bimm [0] $end
+$var wire 1 O" Uimm [31] $end
+$var wire 1 P" Uimm [30] $end
+$var wire 1 Q" Uimm [29] $end
+$var wire 1 R" Uimm [28] $end
+$var wire 1 S" Uimm [27] $end
+$var wire 1 T" Uimm [26] $end
+$var wire 1 U" Uimm [25] $end
+$var wire 1 V" Uimm [24] $end
+$var wire 1 W" Uimm [23] $end
+$var wire 1 X" Uimm [22] $end
+$var wire 1 Y" Uimm [21] $end
+$var wire 1 Z" Uimm [20] $end
+$var wire 1 [" Uimm [19] $end
+$var wire 1 \" Uimm [18] $end
+$var wire 1 ]" Uimm [17] $end
+$var wire 1 ^" Uimm [16] $end
+$var wire 1 _" Uimm [15] $end
+$var wire 1 `" Uimm [14] $end
+$var wire 1 a" Uimm [13] $end
+$var wire 1 b" Uimm [12] $end
+$var wire 1 c" Uimm [11] $end
+$var wire 1 d" Uimm [10] $end
+$var wire 1 e" Uimm [9] $end
+$var wire 1 f" Uimm [8] $end
+$var wire 1 g" Uimm [7] $end
+$var wire 1 h" Uimm [6] $end
+$var wire 1 i" Uimm [5] $end
+$var wire 1 j" Uimm [4] $end
+$var wire 1 k" Uimm [3] $end
+$var wire 1 l" Uimm [2] $end
+$var wire 1 m" Uimm [1] $end
+$var wire 1 n" Uimm [0] $end
+$var wire 1 o" Jimm [31] $end
+$var wire 1 p" Jimm [30] $end
+$var wire 1 q" Jimm [29] $end
+$var wire 1 r" Jimm [28] $end
+$var wire 1 s" Jimm [27] $end
+$var wire 1 t" Jimm [26] $end
+$var wire 1 u" Jimm [25] $end
+$var wire 1 v" Jimm [24] $end
+$var wire 1 w" Jimm [23] $end
+$var wire 1 x" Jimm [22] $end
+$var wire 1 y" Jimm [21] $end
+$var wire 1 z" Jimm [20] $end
+$var wire 1 {" Jimm [19] $end
+$var wire 1 |" Jimm [18] $end
+$var wire 1 }" Jimm [17] $end
+$var wire 1 ~" Jimm [16] $end
+$var wire 1 !# Jimm [15] $end
+$var wire 1 "# Jimm [14] $end
+$var wire 1 ## Jimm [13] $end
+$var wire 1 $# Jimm [12] $end
+$var wire 1 %# Jimm [11] $end
+$var wire 1 &# Jimm [10] $end
+$var wire 1 '# Jimm [9] $end
+$var wire 1 (# Jimm [8] $end
+$var wire 1 )# Jimm [7] $end
+$var wire 1 *# Jimm [6] $end
+$var wire 1 +# Jimm [5] $end
+$var wire 1 ,# Jimm [4] $end
+$var wire 1 -# Jimm [3] $end
+$var wire 1 .# Jimm [2] $end
+$var wire 1 /# Jimm [1] $end
+$var wire 1 0# Jimm [0] $end
+$var wire 1 1# Imm [31] $end
+$var wire 1 2# Imm [30] $end
+$var wire 1 3# Imm [29] $end
+$var wire 1 4# Imm [28] $end
+$var wire 1 5# Imm [27] $end
+$var wire 1 6# Imm [26] $end
+$var wire 1 7# Imm [25] $end
+$var wire 1 8# Imm [24] $end
+$var wire 1 9# Imm [23] $end
+$var wire 1 :# Imm [22] $end
+$var wire 1 ;# Imm [21] $end
+$var wire 1 <# Imm [20] $end
+$var wire 1 =# Imm [19] $end
+$var wire 1 ># Imm [18] $end
+$var wire 1 ?# Imm [17] $end
+$var wire 1 @# Imm [16] $end
+$var wire 1 A# Imm [15] $end
+$var wire 1 B# Imm [14] $end
+$var wire 1 C# Imm [13] $end
+$var wire 1 D# Imm [12] $end
+$var wire 1 E# Imm [11] $end
+$var wire 1 F# Imm [10] $end
+$var wire 1 G# Imm [9] $end
+$var wire 1 H# Imm [8] $end
+$var wire 1 I# Imm [7] $end
+$var wire 1 J# Imm [6] $end
+$var wire 1 K# Imm [5] $end
+$var wire 1 L# Imm [4] $end
+$var wire 1 M# Imm [3] $end
+$var wire 1 N# Imm [2] $end
+$var wire 1 O# Imm [1] $end
+$var wire 1 P# Imm [0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+0!
+1"
+bx #
+xC
+xB
+xA
+x@
+x?
+x>
+x=
+x<
+x;
+x:
+x9
+x8
+x7
+x6
+x5
+x4
+x3
+x2
+x1
+x0
+x/
+x.
+x-
+x,
+x+
+x*
+x)
+x(
+x'
+x&
+x%
+x$
+xD
+xE
+xF
+xG
+xH
+xI
+xJ
+xK
+xL
+xM
+xN
+xQ
+xP
+xO
+xY
+xX
+xW
+xV
+xU
+xT
+xS
+xR
+z]
+z\
+z[
+zZ
+xd
+xc
+xb
+xa
+x`
+x_
+x^
+xi
+xh
+xg
+xf
+xe
+xn
+xm
+xl
+xk
+xj
+xs
+xr
+xq
+xp
+xo
+xw
+xv
+xu
+xt
+x{
+xz
+xy
+xx
+x)!
+x(!
+x'!
+x&!
+x%!
+x$!
+x#!
+x"!
+x!!
+x~
+x}
+x|
+x*!
+xl!
+xk!
+xj!
+xi!
+xh!
+xg!
+xf!
+xe!
+xd!
+xc!
+xb!
+xa!
+x`!
+x_!
+x^!
+x]!
+x\!
+x[!
+xZ!
+xY!
+xX!
+xW!
+xV!
+xU!
+xT!
+xS!
+xR!
+xQ!
+xP!
+xO!
+xN!
+xM!
+x."
+x-"
+x,"
+x+"
+x*"
+x)"
+x("
+x'"
+x&"
+x%"
+x$"
+x#"
+x""
+x!"
+x~!
+x}!
+x|!
+x{!
+xz!
+xy!
+xx!
+xw!
+xv!
+xu!
+xt!
+xs!
+xr!
+xq!
+xp!
+xo!
+xn!
+xm!
+0N"
+xM"
+xL"
+xK"
+xJ"
+xI"
+xH"
+xG"
+xF"
+xE"
+xD"
+xC"
+xB"
+xA"
+x@"
+x?"
+x>"
+x="
+x<"
+x;"
+x:"
+x9"
+x8"
+x7"
+x6"
+x5"
+x4"
+x3"
+x2"
+x1"
+x0"
+x/"
+0n"
+0m"
+0l"
+0k"
+0j"
+0i"
+0h"
+0g"
+0f"
+0e"
+0d"
+0c"
+xb"
+xa"
+x`"
+x_"
+x^"
+x]"
+x\"
+x["
+xZ"
+xY"
+xX"
+xW"
+xV"
+xU"
+xT"
+xS"
+xR"
+xQ"
+xP"
+xO"
+00#
+x/#
+x.#
+x-#
+x,#
+x+#
+x*#
+x)#
+x(#
+x'#
+x&#
+x%#
+x$#
+x##
+x"#
+x!#
+x~"
+x}"
+x|"
+x{"
+xz"
+xy"
+xx"
+xw"
+xv"
+xu"
+xt"
+xs"
+xr"
+xq"
+xp"
+xo"
+xP#
+xO#
+xN#
+xM#
+xL#
+xK#
+xJ#
+xI#
+xH#
+xG#
+xF#
+xE#
+xD#
+xC#
+xB#
+xA#
+x@#
+x?#
+x>#
+x=#
+x<#
+x;#
+x:#
+x9#
+x8#
+x7#
+x6#
+x5#
+x4#
+x3#
+x2#
+x1#
+xL!
+xK!
+xJ!
+xI!
+xH!
+xG!
+xF!
+xE!
+xD!
+xC!
+xB!
+xA!
+x@!
+x?!
+x>!
+x=!
+x<!
+x;!
+x:!
+x9!
+x8!
+x7!
+x6!
+x5!
+x4!
+x3!
+x2!
+x1!
+x0!
+x/!
+x.!
+x-!
+0,!
+1+!
+$end
+#5000
+1!
+1,!
+#10000
+0"
+b11011100000001010000010100010011 #
+0!
+0+!
+1L!
+1K!
+0J!
+0I!
+1H!
+0G!
+0F!
+0E!
+1D!
+0C!
+1B!
+0A!
+0@!
+0?!
+0>!
+0=!
+1<!
+0;!
+1:!
+09!
+08!
+07!
+06!
+05!
+04!
+03!
+12!
+11!
+10!
+0/!
+1.!
+1-!
+0,!
+1*!
+0N
+0M
+0L
+0K
+0J
+0I
+0H
+0G
+0F
+0E
+1D
+0d
+1c
+1b
+1a
+0`
+1_
+1^
+0w
+0v
+1u
+1t
+0l!
+0k!
+0j!
+0i!
+0h!
+0g!
+1f!
+1e!
+1d!
+0c!
+1b!
+1a!
+1`!
+1_!
+1^!
+1]!
+1\!
+1[!
+1Z!
+1Y!
+1X!
+1W!
+1V!
+1U!
+1T!
+1S!
+1R!
+1Q!
+1P!
+1O!
+1N!
+1M!
+0i
+0h
+0g
+0f
+0e
+0{
+0z
+0y
+0x
+0)!
+0(!
+0'!
+0&!
+0%!
+0$!
+1#!
+1"!
+1!!
+0~
+1}
+1|
+0n
+1m
+0l
+1k
+0j
+0b"
+0a"
+0`"
+0_"
+1^"
+0]"
+1\"
+0["
+0Z"
+0Y"
+0X"
+0W"
+0V"
+0U"
+1T"
+1S"
+1R"
+0Q"
+1P"
+1O"
+0/#
+0.#
+0-#
+0,#
+0+#
+1*#
+1)#
+1(#
+0'#
+1&#
+0%#
+0$#
+0##
+0"#
+0!#
+1~"
+0}"
+1|"
+0{"
+1z"
+1y"
+1x"
+1w"
+1v"
+1u"
+1t"
+1s"
+1r"
+1q"
+1p"
+1o"
+1Y
+0X
+0W
+0V
+0U
+0T
+0S
+0R
+0Q
+0P
+0O
+0."
+1-"
+0,"
+1+"
+0*"
+0)"
+1("
+1'"
+1&"
+0%"
+1$"
+1#"
+1""
+1!"
+1~!
+1}!
+1|!
+1{!
+1z!
+1y!
+1x!
+1w!
+1v!
+1u!
+1t!
+1s!
+1r!
+1q!
+1p!
+1o!
+1n!
+1m!
+1M"
+0L"
+1K"
+0J"
+0I"
+1H"
+1G"
+1F"
+0E"
+1D"
+0C"
+1B"
+1A"
+1@"
+1?"
+1>"
+1="
+1<"
+1;"
+1:"
+19"
+18"
+17"
+16"
+15"
+14"
+13"
+12"
+11"
+10"
+1/"
+0s
+1r
+0q
+1p
+0o
+0P#
+0O#
+0N#
+0M#
+0L#
+0K#
+1J#
+1I#
+1H#
+0G#
+1F#
+1E#
+1D#
+1C#
+1B#
+1A#
+1@#
+1?#
+1>#
+1=#
+1<#
+1;#
+1:#
+19#
+18#
+17#
+16#
+15#
+14#
+13#
+12#
+11#
+0C
+0B
+0A
+0@
+0?
+0>
+1=
+1<
+1;
+0:
+19
+18
+17
+16
+15
+14
+13
+12
+11
+10
+1/
+1.
+1-
+1,
+1+
+1*
+1)
+1(
+1'
+1&
+1%
+1$
+#15000
+1!
+1,!
+#20000
+b11101100111001111000010011100011 #
+0!
+0H!
+1G!
+1F!
+1E!
+0D!
+1=!
+1;!
+17!
+16!
+15!
+00!
+1/!
+0,!
+1J
+0D
+0a
+1`
+1k!
+1j!
+1i!
+0d!
+1c!
+1h
+1g
+1f
+1z
+1y
+1x
+1(!
+1'!
+1&!
+0!!
+1~
+1_"
+1]"
+1Y"
+1X"
+1W"
+0R"
+1Q"
+1/#
+1.#
+1-#
+0(#
+1'#
+1!#
+1}"
+1n
+1l
+1."
+0-"
+0&"
+1%"
+0M"
+0F"
+1E"
+1C"
+1s
+0r
+1M#
+0H#
+1G#
+1@
+0;
+1:
+#25000
+1!
+1,!
+#30000
+b1111100010100000011 #
+0!
+0G!
+0F!
+0E!
+1D!
+1>!
+07!
+06!
+05!
+02!
+01!
+0/!
+0.!
+0-!
+0,!
+1K
+0J
+0c
+0b
+0`
+0_
+0^
+0u
+0t
+0k!
+0j!
+0i!
+0f!
+0e!
+0c!
+0b!
+0a!
+0`!
+0_!
+0^!
+0]!
+0\!
+0[!
+0Z!
