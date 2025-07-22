@@ -19,7 +19,8 @@ Dự án viết RTL và mô phỏng một CPU đơn giản sử dụng kiến tr
       + Instruction memory: Chứa hình ảnh, wave và testbench cho mô phỏng bộ nhớ lệnh (Read only memory).
       + Data memory: chứa hình ảnh, wave và testbench cho mô phỏng bộ nhớ dữ liệu.
   - Firmwave RV32I: Chứa mã chương trình (C), phân vùng bộ nhớ(lds), các thanh ghi ngoại vi, start.s(asm), MakeFile, ... cùng các file build ra được như file mã chương trình (hex), map, asm...
-  - 
+  - Bao cao tien do: Chứa pdf mô tả công việc đã làm mỗ tuần, mỗi buổi.
+  - References: Chứa tài liệu tham khảo.
       
   
 
