@@ -5,9 +5,8 @@ module Instruction_memory #(parameter MEM_FILE = "",
 //Bus
     input   [31:0]  mem_addr,   //address for read or write
     output  [31:0]  mem_rdata,  //read data  
-    input   [31:0]  mem_wdata,  //write data
-    input   	    mem_renable,//high when CPU wants to read data
-    input   [ 3:0]  mem_mask    //Choose byte (1 for write)
+    input   	    mem_renable //high when CPU wants to read data
+
 );
 `define ENABLE_READ_INSTR_MEM;
 //`define ENABLE_WRITE_INSTR_MEM;

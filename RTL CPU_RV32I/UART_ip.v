@@ -176,7 +176,7 @@ module uart_ip #(
     // Instantiation: UART transmitter
     // --------------------------------------------------
     UART #(
-        .CLOCK    (3_375_000),  
+        .CLOCK    (27_000_000),  
         .BAUD_RATE(115_200)
     ) uart_tx_inst (
         .i_clk      (clk),

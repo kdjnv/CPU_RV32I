@@ -5,24 +5,83 @@ module RV32I_core(
     input           uart_rx,
     output          uart_tx
 );
+/*===========================================================================
+1. Basic Mode (No Pipeline – 5 Cycles per Instruction)
+When FIVE_STATE_EN is defined, the CPU operates in its most basic form without pipelining.  
+Each instruction goes through 5 sequential stages (such as Fetch, Decode, Execute, Memory,
+and Writeback) but only one stage is processed at a time. As a result, one instruction re-
+-quires 5 clock cycles to complete. This mode prioritizes simplicity and ease of verifica-
+-tion over speed.
+                            `define FIVE_STATE_EN
+===========================================================================*/
+//`define FIVE_STATE_EN
 
-`define FIVE_STATE_EN
+
+/*===========================================================================
+2. Fast Mode (No Pipeline – 3 Cycles per Instruction)
+When THREE_STATE_EN is defined, the CPU still operates without pipelining but optimizes t-
+-he execution flow to merge or shorten certain stages, allowing each instruction to compl-
+-ete in just 3 clock cycles. While this is faster than the basic mode, it is still sequen-
+-tial and does not overlap instructions like a true pipeline.
+                            `define THREE_STATE_EN
+===========================================================================*/
+`define THREE_STATE_EN
+
+
+/*===========================================================================
+3. Advanced Mode (Pipelined – 1 Cycle per Instruction)
+When FIVES_PIPELINE_EN is defined, the CPU uses pipeline techniques to overlap multiple i-
+-nstruction stages (e.g., while one instruction is in Decode, another can be in Execute).
+With this approach, once the pipeline is filled, the CPU can achieve a throughput of 1 in-
+-struction per clock cycle, significantly improving performance compared to non-pipelined
+modes.
+                            `define FIVES_PIPELINE_EN
+===========================================================================*/
+//`define FIVES_PIPELINE_EN
+
+
+`ifdef FIVE_STATE_EN
+    `undef THREE_STATE_EN
+    `undef FIVES_PIPELINE_EN
+`endif
+`ifdef THREE_STATE_EN
+    `undef FIVE_STATE_EN
+    `undef FIVES_PIPELINE_EN
+`endif
+`ifdef FIVES_PIPELINE_EN
+    `undef THREE_STATE_EN
+    `undef FIVE_STATE_EN
+`endif
+
+//`define CLKDIV8
 
 localparam  INSTR_FIRST     =   32'h00000000;
 localparam  VALUE_RESET32   =   32'h00000000;
 localparam  VALUE_RESET     =   0;
 
+
+//for CPU 5 instruction cycles
 localparam  IF              =   0;
 localparam  ID              =   1;
 localparam  EX              =   2;
 localparam  MEM             =   3;
 localparam  WB              =   4;
 
-localparam  Fetchoh            =   5'b0001 <<  IF;
-localparam  Decodeoh            =   5'b0001 <<  ID;
-localparam  Executeoh            =   5'b0001 <<  EX;
-localparam  MemoryAoh           =   5'b0001 <<  MEM;
-localparam  WriteBoh            =   5'b0001 <<  WB;
+localparam  Fetchoh         =   5'b00001 <<  IF;        //Fetch
+localparam  Decodeoh        =   5'b00001 <<  ID;        //Decode
+localparam  Executeoh       =   5'b00001 <<  EX;        //Execute
+localparam  MemoryAoh       =   5'b00001 <<  MEM;       //Memory access
+localparam  WriteBoh        =   5'b00001 <<  WB;        //Write back
+
+
+//for CPU 3 instruction cycles
+localparam  FD              =   0;                      //Fetch and decodes
+localparam  EM              =   1;                      //Execute and access memory
+localparam  WM              =   2;                      //Write back reg or mem
+
+localparam  FetADec         =   5'b00001 <<  FD;
+localparam  ExeAMem         =   5'b00001 <<  EM;
+localparam  WRegOMem        =   5'b00001 <<  WM;
 
 wire    [31:0 ] memd_ldata, memins_rdata;
 
@@ -38,13 +97,18 @@ always @(*) begin
     endcase
 end
 
-wire clksys;
+wire clksys;    
+`ifndef CLKDIV8
+    assign clksys = clk;
+`endif
+`ifdef CLKDIV8
     Gowin_CLKDIV your_instance_name(
         .clkout(clksys), //output clkout
         .hclkin(clk), //input hclkin
         .resetn(rst) //input resetn
     );
 
+`endif
 
 /*-------------------------------------------------
 The device_select module decodes the upper 4 bits of a 32-bit address to generate select signals for different peripherals in an RV32I-based system. 
@@ -119,11 +183,11 @@ The CPU can read from or write to a specified address.
 It is accessed during the load/store stage of instruction execution.
 ---------------------------------------------------*/
 //reg     [31:0 ] mem_addr, memint_addr;
-reg     [31:0 ] memd_sdata, memins_wdata;
-wire    [31:0 ] memd_sdatafn;               assign  memd_sdatafn    =   memd_sdata << (mem_addr[1:0]*8);
+reg     [31:0 ] memd_sdata;
+wire    [31:0 ] memd_sdatafn;       assign  memd_sdatafn    =   memd_sdata << (mem_addr[1:0]*8);    //Shift data for store byte or haftw
 reg             memd_lready; 
 wire            memins_read;
-wire    [ 3:0 ] memd_mask, memins_mask;
+wire    [ 3:0 ] memd_mask;
 reg             memd_senable = 1'b0;
 
 Instruction_memory #(
@@ -134,9 +198,7 @@ Instruction_memory #(
     .clk        (clksys),
     .mem_addr   (memins_addr),
     .mem_rdata  (memins_rdata),
-    .mem_wdata  (memins_wdata <<mem_addr[1:0]*8), //don't use
-    .mem_renable(memins_read),
-    .mem_mask   (memins_mask)   //don't use
+    .mem_renable(memins_read)
 );
 
 Data_memory #(
@@ -147,7 +209,7 @@ Data_memory #(
     .clk        (clksys),
     .mem_addr   ({4'h0, mem_addr[27:0]}),
     .mem_ldata  (memd_ldata),
-    .mem_sdata  (memd_sdatafn),    //Shift data for store byte or haftw
+    .mem_sdata  (memd_sdatafn),    
     .mem_lenable(memd_lready & insLOAD),
     .mem_mask   (memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & {4{insSTORE}})
 );
@@ -171,7 +233,7 @@ wire    [31:0]  halfw_data;
 assign byte_data = (mem_addr[1:0] == 2'b00) ? processor_data[7:0]   :
                    (mem_addr[1:0] == 2'b01) ? processor_data[15:8]  :
                    (mem_addr[1:0] == 2'b10) ? processor_data[23:16] :
-                                               processor_data[31:24];
+                                              processor_data[31:24] ;
 assign halfw_data = mem_addr[1] ? processor_data[31:16] : processor_data[15:0];
 
 
@@ -215,17 +277,28 @@ Register x0 is hardwired to zero and cannot be modified.
 The register file supports two read ports and one write port, allowing simultaneous access to rs1, rs2, and rd operands. 
 It is used for storing intermediate and final results during instruction execution.
 ---------------------------------------------------------*/
+wire    [31:0 ] data_desfn;
+reg     [31:0 ] result;
+`ifdef THREE_STATE_EN
+    assign data_desfn = (insLOAD)?mem_ldmask:result;
+`endif
+`ifndef THREE_STATE_EN
+    assign data_desfn = data_des;
+`endif
+
 reg     [31:0 ] data_des;
 //wire    [31:0 ] data_rs1;
 //wire    [31:0 ] data_rs2;
 reg             data_valid;
+
+
 
 Registers_unit Regunit(
     .clk        (clksys), 
     .rs1        (regrs1),
     .rs2        (regrs2),
     .rd         (regrd),
-    .data_des   (data_des),
+    .data_des   (data_desfn),
     .data_valid (data_valid),   
     .data_rs1   (data_rs1),
     .data_rs2   (data_rs2)
@@ -256,6 +329,15 @@ uart_ip uart_unit(
 );
 
 
+reg     [31:0 ] PC      =   INSTR_FIRST;    //The program counter (PC) is a 32-bit register that holds the address of the current instruction being executed. 
+                                            //After each instruction, the PC is typically incremented by 4 to point to the next instruction. 
+reg     [31:0 ] PCnext  =   INSTR_FIRST;
+reg     [ 4:0 ] state   =   5'b00001;
+reg     [31:0 ] load_data;
+wire            insALU  =   insALUImm || insALUReg;
+
+
+
 /*----------------------------------------------------------
 This processor is organized into five stages:
     1. IF (Instruction Fetch): Fetches the next instruction from instruction memory.
@@ -263,18 +345,8 @@ This processor is organized into five stages:
     3. EX (Execute): Performs arithmetic or logic operations in the ALU, or computes branch targets.
     4. MEM (Memory Access): Accesses data memory for load/store instructions.
     5. WB (Write Back): Writes results back to the register file.
-This pipelined structure improves instruction throughput by allowing multiple instructions to be processed in parallel, each at a different stage.
+No pileline
 ----------------------------------------------------------*/
-reg     [31:0 ] PC      =   INSTR_FIRST;    //The program counter (PC) is a 32-bit register that holds the address of the current instruction being executed. 
-                                            //After each instruction, the PC is typically incremented by 4 to point to the next instruction. 
-reg     [31:0 ] PCnext  =   INSTR_FIRST;
-reg     [ 4:0 ] state   =   5'b00001;
-reg     [31:0 ] load_data;
-reg     [31:0 ] result;
-wire            insALU  =   insALUImm || insALUReg;
-
-//assign          mem_addr = data_rs1 + Immediate;
-
 `ifdef FIVE_STATE_EN
     assign memins_read = state[IF]; //only Instruction Fetch
     assign memins_addr = PC;
@@ -356,23 +428,7 @@ wire            insALU  =   insALUImm || insALUReg;
                             data_des <= mem_ldmask;
                             data_valid <= 1'b1;
                         end
-                        insALU: begin
-                            data_des <= result;
-                            data_valid <= 1'b1;
-                        end
-                        insLUI: begin
-                            data_des <= result;
-                            data_valid <= 1'b1;
-                        end
-                        insAUIPC: begin
-                            data_des <= result;
-                            data_valid <= 1'b1;
-                        end
-                        insJAL: begin
-                            data_des <= result;
-                            data_valid <= 1'b1;
-                        end
-                        insJALR: begin
+                        insALU | insLUI | insAUIPC | insJAL | insJALR: begin
                             data_des <= result;
                             data_valid <= 1'b1;
                         end
@@ -380,18 +436,114 @@ wire            insALU  =   insALUImm || insALUReg;
                     state <= Fetchoh;
                     PC <= PCnext;               //thay doi PC de fetch
                 end
-//                default: 
             endcase
         end
     end
 `endif
 
 
-`ifdef PIPELINE_EN
-    //PIPELINE HERE
-`else //SIMPLE_EFFECTIVE_EN
-    //SIMPLE_EFFECTIVE_EN
+
+/*----------------------------------------------------------
+This processor is organized into three states:
+    1. FD (Fetch & Decode): Fetches the instruction, decodes it, and reads registers.
+    2. EM (Execute & Memory): Executes ALU operations or accesses data memory.
+    3. WM (Write Back): Writes results back to the register file or memory.
+No pileline
+----------------------------------------------------------*/
+`ifdef THREE_STATE_EN
+    assign memins_read = 1'b1; //always read
+    assign memins_addr = PC;
+
+    always @(*) begin
+        instr_data = memins_rdata;
+    end
+
+    always @(posedge clksys) begin
+        if(!rst) begin
+            PC <= INSTR_FIRST;
+            PCnext <= INSTR_FIRST;
+            data_valid <= VALUE_RESET; 
+            memd_lready <= VALUE_RESET;
+            memd_senable <= VALUE_RESET;
+            data_des <= VALUE_RESET32;
+            memd_sdata <= VALUE_RESET32;
+            state <= FetADec;
+        end
+        else begin
+            (*parallel_case*)
+            case(1'b1)
+                state[EM]: begin
+                    (*parallel_case*)
+                    case(1'b1)
+                        insBRA: begin
+                            PCnext <= flag_branch ? PC + Immediate : PC+4;
+                        end
+                        insLOAD: begin
+                            memd_lready <= 1'b1;
+                            mem_addr <= data_rs1 + Immediate;
+                        end
+                        insSTORE: begin
+                            mem_addr <= data_rs1 + Immediate;
+                            memd_sdata <= data_rs2;
+                            memd_senable <= 1'b1;
+                        end
+                        insALU: begin
+                            result <= result_ALU;
+                            data_valid <= 1'b1;
+                        end
+                        insLUI: begin
+                            result <= Immediate;
+                            data_valid <= 1'b1;
+                        end
+                        insAUIPC: begin 
+                            result <= PC + Immediate;
+                            data_valid <= 1'b1;
+                        end
+                        insJAL: begin
+                            result <= PC + 4;
+                            PCnext <= PC + Immediate;
+                            data_valid <= 1'b1;
+                        end
+                        insJALR: begin
+                            data_valid <= 1'b1;
+                            result <= PC + 4;
+                            PCnext <= data_rs1 + Immediate;
+                        end
+                    endcase    
+                    if (!(insBRA||insJAL||insJALR)) PCnext <= PC + 4;
+                    state <= WRegOMem;
+                end
+                state[WM]: begin
+                    case(1'b1)
+                        insLOAD: begin
+                            memd_lready <= 1'b0;
+                            data_valid <= 1'b1;
+                        end
+                        insSTORE: begin
+//                            memd_sdata <= data_rs2;
+                            memd_senable <= 1'b0;
+                        end
+                        insALU | insLUI | insAUIPC | insJAL | insJALR: begin
+                            //data_des <= result;
+                            data_valid <= 1'b0;
+                        end
+                    endcase 
+                    state <= FetADec;
+                    PC <= PCnext;
+                end
+                state[FD]: begin
+                    data_valid <= 1'b0;
+                    state <= ExeAMem;
+                end
+            endcase   
+        end
+    end
 `endif
 
+
+
+`ifdef PIPELINE_EN
+    //PIPELINE HERE
+`endif
 
 endmodule
