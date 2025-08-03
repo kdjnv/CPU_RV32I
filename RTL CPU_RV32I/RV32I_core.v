@@ -25,7 +25,7 @@ When THREE_STATE_EN is defined, the CPU still operates without pipelining but op
 -tial and does not overlap instructions like a true pipeline.
                             `define THREE_STATE_EN
 ===========================================================================*/
-`define THREE_STATE_EN
+//`define THREE_STATE_EN
 
 
 /*===========================================================================
@@ -37,7 +37,7 @@ With this approach, once the pipeline is filled, the CPU can achieve a throughpu
 modes.
                             `define FIVES_PIPELINE_EN
 ===========================================================================*/
-//`define FIVES_PIPELINE_EN
+`define FIVES_PIPELINE_EN
 
 
 `ifdef FIVE_STATE_EN
@@ -56,6 +56,7 @@ modes.
 //`define CLKDIV8
 
 localparam  INSTR_FIRST     =   32'h00000000;
+localparam  INSTR_NOP       =   32'h00000013;
 localparam  VALUE_RESET32   =   32'h00000000;
 localparam  VALUE_RESET     =   0;
 
@@ -171,6 +172,7 @@ RV32_Decoder Maindecoder(
 );
 
 
+
 /*---------------------------------------------------
 Instruction Memory:
 A read-only memory that stores machine instructions. 
@@ -190,15 +192,18 @@ wire            memins_read;
 wire    [ 3:0 ] memd_mask;
 reg             memd_senable = 1'b0;
 
+wire    [31:0 ] memins_rdata_pred;
+
 Instruction_memory #(
 //    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
     .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/Project_I2C/firmware/firmware_instr.hex"),
     .SIZE       (4096)  //4Kb
 ) ins_mem(
-    .clk        (clksys),
-    .mem_addr   (memins_addr),
-    .mem_rdata  (memins_rdata),
-    .mem_renable(memins_read)
+    .clk            (clksys),
+    .mem_addr       (memins_addr),
+    .mem_rdata      (memins_rdata),
+    .mem_rdata_pred (memins_rdata_pred),
+    .mem_renable    (memins_read)
 );
 
 Data_memory #(
@@ -218,7 +223,7 @@ Data_memory #(
 wire    lsByte  =   (funct3[1:0] == 2'b00);
 wire    lsHaftW =   (funct3[0]);
 wire    lsWord  =   (funct3[1]);
-wire    lsSign  =   (!funct3[2]);
+wire    lsSign  =  (!funct3[2]);
 //gen mem_mask and make load data 8bit, 16bit or 32bit
 assign          memd_mask   = 
                     lsWord  ?   4'b1111                         :
@@ -278,30 +283,49 @@ The register file supports two read ports and one write port, allowing simultane
 It is used for storing intermediate and final results during instruction execution.
 ---------------------------------------------------------*/
 wire    [31:0 ] data_desfn;
+wire    [ 4:0 ] regrdfn;
 reg     [31:0 ] result;
+reg     [31:0 ] data_des;
+reg     [ 4:0 ] regrd_shiftpl   =   5'h00;
 `ifdef THREE_STATE_EN
     assign data_desfn = (insLOAD)?mem_ldmask:result;
+    assign regrdfn = regrd;
 `endif
-`ifndef THREE_STATE_EN
+`ifdef FIVE_STATE_EN
     assign data_desfn = data_des;
+    assign regrdfn = regrd;
+`endif
+`ifdef FIVES_PIPELINE_EN
+    assign data_desfn = data_des;
+    assign regrdfn = regrd_shiftpl;
 `endif
 
-reg     [31:0 ] data_des;
+
 //wire    [31:0 ] data_rs1;
 //wire    [31:0 ] data_rs2;
+wire    [31:0 ] data_rs1pred;
+wire    [ 4:0 ] regrs1pred;
+wire    [ 4:0 ] regrdpred;
+reg     [31:0 ] data_despred;
 reg             data_valid;
+reg             data_validpred;
 
 
 
 Registers_unit Regunit(
-    .clk        (clksys), 
-    .rs1        (regrs1),
-    .rs2        (regrs2),
-    .rd         (regrd),
-    .data_des   (data_desfn),
-    .data_valid (data_valid),   
-    .data_rs1   (data_rs1),
-    .data_rs2   (data_rs2)
+    .clk            (clksys), 
+    .rs1            (regrs1),
+    .rs1pred        (regrs1pred),
+    .rdpred         (regrdpred),
+    .rs2            (regrs2),
+    .rd             (regrdfn),
+    .data_des       (data_desfn),
+    .data_despred   (data_despred),
+    .data_valid     (data_valid),
+    .data_validpred (data_validpred),
+    .data_rs1       (data_rs1),
+    .data_rs2       (data_rs2),
+    .data_rs1pred   (data_rs1pred)
 );
 
 
@@ -337,7 +361,7 @@ reg     [31:0 ] load_data;
 wire            insALU  =   insALUImm || insALUReg;
 
 
-
+/*------------------------------------------------------------------------------------------
 /*----------------------------------------------------------
 This processor is organized into five stages:
     1. IF (Instruction Fetch): Fetches the next instruction from instruction memory.
@@ -346,7 +370,8 @@ This processor is organized into five stages:
     4. MEM (Memory Access): Accesses data memory for load/store instructions.
     5. WB (Write Back): Writes results back to the register file.
 No pileline
-----------------------------------------------------------*/
+------------------------------------------------------------
+-------------------------------------------------------------------------------------------*/
 `ifdef FIVE_STATE_EN
     assign memins_read = state[IF]; //only Instruction Fetch
     assign memins_addr = PC;
@@ -442,14 +467,15 @@ No pileline
 `endif
 
 
-
+/*------------------------------------------------------------------------------------------
 /*----------------------------------------------------------
 This processor is organized into three states:
     1. FD (Fetch & Decode): Fetches the instruction, decodes it, and reads registers.
     2. EM (Execute & Memory): Executes ALU operations or accesses data memory.
     3. WM (Write Back): Writes results back to the register file or memory.
-No pileline
-----------------------------------------------------------*/
+No pipeline
+------------------------------------------------------------
+-------------------------------------------------------------------------------------------*/
 `ifdef THREE_STATE_EN
     assign memins_read = 1'b1; //always read
     assign memins_addr = PC;
@@ -541,9 +567,326 @@ No pileline
 `endif
 
 
+/*------------------------------------------------------------------------------------------
+/*----------------------------------------------------------
+This processor is organized into five pipeline stages:
+    1. IF (Instruction Fetch): Fetches the instruction from instruction memory.
+    2. ID (Instruction Decode): Decodes the instruction and reads operands from registers.
+    3. EX (Execute): Performs ALU operations or computes branch targets.
+    4. MEM (Memory Access): Accesses data memory for load/store instructions.
+    5. WB (Write Back): Writes results back to the register file.
+Pipelined architecture enables instruction-level parallelism.
+Each instruction passes through these stages in successive clock cycles.
+After the pipeline is filled, one instruction is completed per clock cycle.
+------------------------------------------------------------
+-------------------------------------------------------------------------------------------*/
+`ifdef FIVES_PIPELINE_EN
+reg     IDen                    =   VALUE_RESET;
+reg     EXen                    =   VALUE_RESET;
+reg     MEMen                   =   VALUE_RESET;
+reg     WBen                    =   VALUE_RESET;
+reg     Fetchena                =   VALUE_RESET;    
+reg     [31:0 ] PCBraoJum       =   VALUE_RESET32;
+reg     [31:0 ] temp            =   VALUE_RESET32;
 
-`ifdef PIPELINE_EN
-    //PIPELINE HERE
+reg     [ 2:0 ] CntfMem         =   3'd0;           //counter for memory access
+reg     [31:0 ] Store_datapl1   =   VALUE_RESET32;
+reg     [31:0 ] Store_datapl2   =   VALUE_RESET32;
+
+reg     [31:0 ] mem_addrup      =   VALUE_RESET32;  //địa chỉ tới trước 1 chu kì cho memory access
+reg     [31:0 ] result_shiftpl  =   VALUE_RESET32;
+reg     [31:0 ] return_addrpred =   VALUE_RESET32;
+reg     [31:0 ] choose1_1       =   VALUE_RESET32;
+reg     [31:0 ] choose1_2       =   VALUE_RESET32;
+reg     [31:0 ] choose1_3       =   VALUE_RESET32;
+reg     [31:0 ] choose2_1       =   VALUE_RESET32;
+reg     [31:0 ] choose2_2       =   VALUE_RESET32;
+reg     [31:0 ] choose2_3       =   VALUE_RESET32;
+
+reg             ck              =   VALUE_RESET;
+reg             ck1             =   VALUE_RESET;
+reg             ck2             =   VALUE_RESET;
+reg             wrong_pred      =   VALUE_RESET;
+reg             predict_taken1  =   VALUE_RESET;
+reg             predict_taken2  =   VALUE_RESET;
+reg             predict_taken3  =   VALUE_RESET;
+
+
+reg     [ 4:0 ] regrd_shiftpl1  =   5'h00;
+reg     [ 4:0 ] regrd_shiftpl2  =   5'h00;
+reg     [ 4:0 ] regrd_shiftpl3  =   5'h00;
+//reg     [ 4:0 ] regrd_shiftpl   =   5'h00;
+
+reg             insALUImmshift1, insALURegshift1, insLUIshift1,
+                insAUIPCshift1, insJALshift1, insJALRshift1,
+                insBRAshift1, insLOADshift1, insSTOREshift1,
+                insSYSshift1, insFENCEshift1;
+reg             insALUImmshift2, insALURegshift2, insLUIshift2,
+                insAUIPCshift2, insJALshift2, insJALRshift2,
+                insBRAshift2, insLOADshift2, insSTOREshift2,
+                insSYSshift2, insFENCEshift2;
+
+
+/*-------------------------------------------------------------------------
+This module implements a 2-bit bimodal branch predictor using a 256-entry table of saturating counters.
+It predicts branch direction based on the most significant bit (MSB) of each counter. On each clock cy-
+-cle, the predictor updates its state according to the actual branch outcome if update_en is high.
+-------------------------------------------------------------------------*/
+reg             update_BHT      =   VALUE_RESET;
+reg             actual_taken    =   VALUE_RESET;
+wire            predict_taken;  
+wire            insBRApred; 
+reg     [31:0 ] pc_pred_in      =   VALUE_RESET32;
+branch_predictor BRA_PRED(
+    .clk             (clksys),
+    .rst             (rst), 
+    .insBRA          (insBRApred),
+    .pc_pred_in      (pc_pred_in),           //Dư đoán lệnh kế tiếp      
+    .update_en       (update_BHT),    
+    .actual_taken    (actual_taken),  
+    .predict_taken   (predict_taken)   //0: not take, 1: take
+);
+
+/*-------------
+Decoder for predictor
+-------------*/
+wire            insJALpred;
+wire            insJALRpred;
+
+wire    [31:0 ] Immediatepred;
+RV32_Decoder Decoder_for_pred(
+    .instr_data         (memins_rdata_pred),
+    .Immediate          (Immediatepred),
+    .insJAL             (insJALpred),
+    .insJALR            (insJALRpred),
+    .insBRA             (insBRApred),
+    .regrs1             (regrs1pred),
+    .regrd              (regrdpred)
+);
+ 
+
+
+/*----------------------------------------------------------
+    1. IF (Instruction Fetch): Fetches the instruction from instruction memory.
+    2. ID (Instruction Decode): Decodes the instruction and reads operands from registers.
+    3. EX (Execute): Performs ALU operations or computes branch targets.
+    4. MEM (Memory Access): Accesses data memory for load/store instructions.
+    5. WB (Write Back): Writes results back to the register file.
+----------------------------------------------------------*/
+    //Fetch
+    
+    assign memins_addr = PC;
+    assign memins_read = 1'b1;          //Luôn đọc
+    always @(posedge clksys) begin
+        if(!rst) begin 
+            PC <= INSTR_FIRST;
+            PCnext <= INSTR_FIRST;
+            Fetchena <= VALUE_RESET;
+            pc_pred_in <= VALUE_RESET32;
+            ck <= VALUE_RESET;
+            IDen <= VALUE_RESET;
+            update_BHT <= VALUE_RESET;
+            predict_taken1 <= VALUE_RESET;
+            predict_taken2 <= VALUE_RESET;
+        end
+        else begin
+            PC <= PCnext;
+            Fetchena <= 1'b1;
+            PCnext <= PCnext + 4;
+            pc_pred_in <= PCnext + 4;
+            update_BHT <= 1'b0;
+            ck <= 1'b0;
+
+            (*parallel_case*)
+            case(1'b1) 
+                insJALpred: begin
+                    PCnext <= PC + Immediatepred;
+                    //return_addrpred <= PC + 4;
+                end
+                insJALRpred: begin
+                    PCnext <= data_rs1pred + Immediatepred;
+                    //return_addrpred <= PC + 4;
+                end
+                insBRApred: begin
+                    PCnext <= (predict_taken)?PC + Immediatepred:PCnext+4;
+                    ck <= 1'b1;
+                end
+            endcase
+
+            IDen <= 1'b1;
+            if(wrong_pred) begin
+                IDen <= 1'b0;                                       //Lập lại pipeline
+                PC <= (predict_taken2)?choose2_3:choose1_2;         //Phục hồi nhánh đúng
+                PCnext <= (predict_taken2)?choose2_3+4:choose1_2+4;
+
+                //Update BHT
+                update_BHT <= 1'b1;
+                actual_taken <= !predict_taken2;
+                pc_pred_in <= choose2_3-4;                          //Địa chỉ lệnh branch
+            end 
+
+            choose1_1 <= PC + Immediatepred;    choose1_2 <= choose1_1; choose1_3 <= choose1_2;
+            choose2_1 <= PCnext;              choose2_2 <= choose2_1; choose2_3 <= choose2_2;
+
+            predict_taken1 <= predict_taken;    
+            predict_taken2 <= predict_taken1;
+            predict_taken3 <= predict_taken2;
+
+            ck1 <= ck;       
+            ck2 <= ck1;
+        end
+    end
+
+
+    //Decode
+    always @(*) begin
+        instr_data = memins_rdata;
+    end
+
+    always @(posedge clksys or negedge IDen) begin
+        if (!rst || !IDen) begin
+            EXen <= 1'b0;
+
+            insALUImmshift1 <= 1'b0;    insALURegshift1 <= 1'b0;    insLUIshift1    <= 1'b0;
+            insAUIPCshift1  <= 1'b0;    insJALshift1    <= 1'b0;    insJALRshift1   <= 1'b0;
+            insBRAshift1    <= 1'b0;    insLOADshift1   <= 1'b0;    insSTOREshift1  <= 1'b0;
+            insSYSshift1    <= 1'b0;    insFENCEshift1  <= 1'b0;
+
+            insALUImmshift2 <= 1'b0;    insALURegshift2 <= 1'b0;    insLUIshift2    <= 1'b0;
+            insAUIPCshift2  <= 1'b0;    insJALshift2    <= 1'b0;    insJALRshift2   <= 1'b0;
+            insBRAshift2    <= 1'b0;    insLOADshift2   <= 1'b0;    insSTOREshift2  <= 1'b0;
+            insSYSshift2    <= 1'b0;    insFENCEshift2  <= 1'b0;
+        end
+        else begin
+            //instr_data <= memins_rdata;
+            EXen <= 1'b1;
+            Store_datapl1 <= data_rs2;          //Lưu trễ 1 chu kì
+            Store_datapl2 <= Store_datapl1;     //Lưu trễ 2 chu kì để dành cho memory access
+
+            regrd_shiftpl1 <= regrd;            //Lưu trễ 1 chu kì
+            regrd_shiftpl2 <= regrd_shiftpl1;   //Lưu trẽ 2 chu kì
+            regrd_shiftpl3 <= regrd_shiftpl2;   //Lưu trễ 3 chu kì
+
+            // Lưu trễ 1 chu kỳ 
+            insALUImmshift1  <= insALUImm;      insALURegshift1  <= insALUReg;
+            insLUIshift1     <= insLUI;         insAUIPCshift1   <= insAUIPC;
+            insJALshift1     <= insJAL;         insJALRshift1    <= insJALR;
+            insBRAshift1     <= insBRA;         insLOADshift1    <= insLOAD;
+            insSTOREshift1   <= insSTORE;       insSYSshift1     <= insSYS;
+            insFENCEshift1   <= insFENCE;
+
+            // Lưu trễ 2 chu kỳ 
+            insALUImmshift2  <= insALUImmshift1;insALURegshift2  <= insALURegshift1;
+            insLUIshift2     <= insLUIshift1;   insAUIPCshift2   <= insAUIPCshift1;
+            insJALshift2     <= insJALshift1;   insJALRshift2    <= insJALRshift1;
+            insBRAshift2     <= insBRAshift1;   insLOADshift2    <= insLOADshift1;
+            insSTOREshift2   <= insSTOREshift1; insSYSshift2     <= insSYSshift1;
+            insFENCEshift2   <= insFENCEshift1;
+        end
+    end
+
+
+    //Execute
+    always @(posedge clksys or negedge EXen) begin
+        if(!rst || !EXen) begin
+            MEMen <= 1'b0;
+            wrong_pred <= VALUE_RESET;
+            PCBraoJum <= VALUE_RESET;
+            mem_addrup <= VALUE_RESET32;
+            result <= VALUE_RESET32;
+        end
+        else begin
+            wrong_pred <= 1'b0;
+            (*parallel_case*)
+            case(1'b1)
+                insBRA: begin
+                    //PCnext <= flag_branch ? PC + Immediate : PC+4; //was predicted
+                    if(flag_branch != predict_taken1) begin
+                        wrong_pred <= 1'b1;
+                    end
+                end
+                insLOAD: begin
+                    mem_addrup <= data_rs1 + Immediate;
+                end
+                insSTORE: begin
+                    mem_addrup <= data_rs1 + Immediate;
+                end
+                insALU: begin
+                    result <= result_ALU;
+                end
+                insLUI: begin
+                    result <= Immediate;
+                end
+                insAUIPC: begin 
+                    result <= PC + Immediate;
+                end
+                insJAL: begin
+                    result <= PC + 4;                 //was predicted
+                    //PCnext <= PC + Immediate;         //was predicted
+                end
+                insJALR: begin
+                    result <= PC + 4;                 //was predicted
+                    //PCnext <= data_rs1 + Immediate;   //was predicted
+                end
+            endcase
+
+            result_shiftpl <= result;
+            MEMen <= 1'b1;
+        end
+    end
+
+
+    //Memory access
+    always @(posedge clksys or negedge MEMen) begin
+        if(!rst || !MEMen) begin
+            WBen <= VALUE_RESET;
+            load_data <= VALUE_RESET32;
+            memd_sdata <= VALUE_RESET32;
+        end
+        else begin
+            if(insLOADshift1) begin
+                //load_data <= mem_ldmask;
+                mem_addr <= mem_addrup;
+                memd_lready <= 1'b1;
+            end
+            else if(insSTOREshift1) begin
+                memd_sdata <= Store_datapl1;
+                mem_addr <= mem_addrup;
+                memd_senable <= 1'b1;
+            end
+            else begin
+                memd_lready <= 1'b0;
+                memd_senable <= 1'b0;
+            end
+            WBen <= 1'b1;
+        end
+    end
+
+
+    //Write back
+    always @(posedge clksys or negedge WBen) begin
+        if(!rst || !WBen) begin
+            data_des <= VALUE_RESET32;
+            regrd_shiftpl <= 5'h00;
+            data_valid <= VALUE_RESET;
+        end
+        else begin
+            case(1'b1)
+                insLOADshift2: begin
+                    data_des <= mem_ldmask;
+                    regrd_shiftpl <= regrd_shiftpl2;
+                    data_valid <= 1'b1;
+                end
+                insALUImmshift2 | insALURegshift2 | insLUIshift2 | 
+                insAUIPCshift2  | insJALshift2    | insJALRshift2   : begin
+                    data_des <= result_shiftpl;
+                    regrd_shiftpl <= regrd_shiftpl2;
+                    data_valid <= 1'b1;
+                end
+                default: data_valid <= 1'b0;
+            endcase
+        end
+    end
 `endif
 
 endmodule

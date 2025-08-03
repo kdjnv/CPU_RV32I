@@ -5,6 +5,7 @@ module Instruction_memory #(parameter MEM_FILE = "",
 //Bus
     input   [31:0]  mem_addr,   //address for read or write
     output  [31:0]  mem_rdata,  //read data  
+    output  [31:0]  mem_rdata_pred,  
     input   	    mem_renable //high when CPU wants to read data
 
 );
@@ -30,10 +31,12 @@ module Instruction_memory #(parameter MEM_FILE = "",
 
 //read instr
     reg     [31: 0] rdata;  assign mem_rdata = rdata;
+    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = rdata_pred;    
 `ifdef ENABLE_READ_INSTR_MEM
     always @(posedge clk) begin
         if(mem_renable)
             rdata <= MEM[addr_word]; 
+            rdata_pred <= MEM[addr_word+1];
     end
 `endif
 

@@ -2,13 +2,18 @@ module Registers_unit(
     input           clk,
 
     input   [ 4:0 ] rs1,
+    input   [ 4:0 ] rs1pred,
+    input   [ 4:0 ] rdpred,
     input   [ 4:0 ] rs2,
     input   [ 4:0 ] rd,
     input   [31:0 ] data_des,
+    input   [31:0 ] data_despred,
     input           data_valid,
+    input           data_validpred,
 
     output  [31:0]  data_rs1,
-    output  [31:0]  data_rs2
+    output  [31:0]  data_rs2,
+    output  [31:0]  data_rs1pred
 );
 //31 general-purpose registers x1–x31, which hold integer values.
     reg     [31:0]  xreg[0:31];        
@@ -22,12 +27,15 @@ module Registers_unit(
 //Values source
     assign  data_rs1    =   xreg[rs1];
     assign  data_rs2    =   xreg[rs2];
+    assign  data_rs1pred=   xreg[rs1pred];
 
 //Values destination
     always @(posedge clk) begin
         if(data_valid && rd != 5'b00000) 
             xreg[rd] <= data_des;
         xreg[0] <= 32'h00000000;     //Register x0 is hardwired to the constant 0
-    end
 
+        if(data_validpred && rdpred != 5'b00000) 
+            xreg[rdpred] <= data_despred;
+    end
 endmodule
