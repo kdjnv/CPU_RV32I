@@ -67,6 +67,10 @@ module RV32_Decoder(
     output  [4:0]   regrs1, //Zimm
     output  [4:0]   regrd,
 
+    output          en_rs1,
+    output          en_rs2,
+    output          en_rd,
+
 //decode CSR
     output  [3:0]   pred,
     output  [3:0]   succ,
@@ -135,6 +139,11 @@ assign  regrd   =   instr_data[11:7];
 assign  pred    =   instr_data[27:24];
 assign  succ    =   instr_data[23:20];
 assign  indcsr  =   instr_data[31:20];
+
+//Enable rs1, rs2, rd
+assign  en_rd   =   (!insBRA)&(!insSTORE)&(!insFENCE)&(!(insSYS&funct3oh[0]));
+assign  en_rs1  =   ((!insAUIPC)&(!insLUI)&(!insJAL)&(!insFENCE))|(insSYS&(funct3oh[1]|funct3oh[2]|funct3oh[3]));
+assign  en_rs2  =   insALUReg|insSTORE|insBRA;
 
 
 endmodule
