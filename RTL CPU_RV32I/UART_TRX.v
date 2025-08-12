@@ -45,7 +45,7 @@ module UART
 	input       i_RX,
 	output      o_TX,
 
-    output reg  o_busy_tx,                  //Cờ báo hiệu ngoại vi UART đang bận truyền
+    output      o_busy_tx,                  //Cờ báo hiệu ngoại vi UART đang bận truyền
     output      o_RXNE,                     //Cờ báo hiệu ngoại vi UART nhận được đủ 8bit từ bên truyền
     output [7:0]o_data_rx                   //Bit_f chứa dữ liệu 8 bit nhận được từ bên truyền
 
@@ -147,6 +147,20 @@ wire [31:0] BAUDR;
 	reg [7:0] r_TX_byte;
 	reg [2:0] r_TX_index;
 	reg r_TX;
+    reg r_busy_tx;
+    reg r_busy_txfast;
+    reg r_busy_txnot = 1'b0;
+
+    assign o_busy_tx = r_busy_txfast || r_busy_tx;
+    always @(posedge i_clk) begin
+        if (!i_rst || !i_en) begin
+            r_busy_txfast = 0;
+		end
+        else begin
+            r_busy_txfast = 0;
+            if(i_str_tx && !r_busy_tx && !r_busy_txnot) r_busy_txfast = 1;
+        end
+    end
 
 	integer TX_state;
 	localparam	TX_IDLE = 0;
@@ -162,15 +176,16 @@ wire [31:0] BAUDR;
 			r_TX_index <= 0;
 			r_TX <= 1;
 			TX_state <= TX_IDLE;
-            o_busy_tx <= 0;
+            r_busy_tx <= 0;
+            r_busy_txnot <= 0;
 		end
 		else begin
 			case (TX_state)
 				TX_IDLE : begin
-                    o_busy_tx <= 0;
+                    r_busy_tx <= 0;
                     if (i_str_tx) begin
                         r_TX <= 0;
-                        o_busy_tx <= 1;
+                        r_busy_tx <= 1;
                         TX_state <= TX_START;
                     end
 				end
@@ -207,8 +222,12 @@ wire [31:0] BAUDR;
 				end
 
 				TX_DONE : begin
-                    o_busy_tx <= 0;
-					if (!i_str_tx) TX_state <= TX_IDLE;
+                    r_busy_tx <= 0;
+                    r_busy_txnot <= 1'b1;
+					if (!i_str_tx) begin
+                        r_busy_txnot <= 1'b0;
+                        TX_state <= TX_IDLE;
+                    end
 				end
 			endcase
 		end

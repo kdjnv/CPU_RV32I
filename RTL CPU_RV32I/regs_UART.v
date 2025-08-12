@@ -189,17 +189,8 @@ end
 //---------------------
 reg  csr_u_stat_tbusy_ff;
 
-assign csr_u_stat_rdata[0] = csr_u_stat_tbusy_ff;
+assign csr_u_stat_rdata[0] = csr_u_stat_tbusy_in;////////////////////////////////////////////////////////////Tự sửa giúp đọc ghi nhanh hơn phù hợp với tốc độ 1 chu kì/lệnh của cpu
 
-
-always @(posedge clk) begin
-    if (rst) begin
-        csr_u_stat_tbusy_ff <= 1'b0;
-    end else  begin
-              begin            csr_u_stat_tbusy_ff <= csr_u_stat_tbusy_in;
-        end
-    end
-end
 
 
 //---------------------

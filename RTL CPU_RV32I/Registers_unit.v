@@ -1,5 +1,6 @@
 module Registers_unit(
     input           clk,
+    input           rst,
 
     //common port
     input   [ 4:0 ] rs1,
@@ -12,8 +13,7 @@ module Registers_unit(
 
     //port for predictor    
     input   [ 4:0 ] rs1pred,
-    output  [31:0]  data_rs1pred,
-
+    output  [31:0]  data_rs1pred
 
 );
 //31 general-purpose registers x1–x31, which hold integer values.
@@ -31,13 +31,16 @@ module Registers_unit(
     assign  data_rs1pred=   xreg[rs1pred];
 
 //Values destination
+    integer i;
     always @(posedge clk) begin
-        if(data_validlpl && rd_lpl != 5'b00000)
-            xreg[rd_lpl] <= data_des_lpl;
-
         if(data_valid && rd != 5'b00000) 
             xreg[rd] <= data_des;
         xreg[0] <= 32'h00000000;     //Register x0 is hardwired to the constant 0
 
+        if(!rst) begin
+            for(i = 0; i < 32; i = i + 1) begin
+                xreg[i] <= 32'h00000000;
+            end
+        end
     end
 endmodule

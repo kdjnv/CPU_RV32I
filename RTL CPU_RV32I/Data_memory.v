@@ -2,6 +2,7 @@ module Data_memory #(parameter MEM_FILE = "",
     parameter SIZE = 4096)(
 
     input           clk,
+    input           rst,
 
 //Bus
     input   [31:0]  mem_addr,   //address for load or store
@@ -12,6 +13,7 @@ module Data_memory #(parameter MEM_FILE = "",
 );
 `define ENABLE_WRITE_DATA_MEM;
 `define ENABLE_READ_DATA_MEM;
+`define ENABLE_RESET_MEM
 
 
 
@@ -49,5 +51,16 @@ module Data_memory #(parameter MEM_FILE = "",
         if(mem_mask[3]) MEM[addr_word][31:24] <= mem_sdata[31:24];
     end
 `endif
+
+`ifdef ENABLE_RESET_MEM     //Không reset được do sử dụng block ram
+//    always @(posedge clk) begin
+//        if(rst) begin
+//            for(i = 0; i < 20; i = i + 1) begin
+//                MEM[SIZE - i] <= 32'h00000000;
+//            end
+//        end
+//    end
+`endif
+
 
 endmodule
