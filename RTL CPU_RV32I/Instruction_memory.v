@@ -1,6 +1,7 @@
 module Instruction_memory #(parameter MEM_FILE = "",
                 parameter SIZE = 1024)(
     input           clk,
+    input           l_pause,
 
 //Bus
     input   [31:0]  mem_addr,   //address for read or write
@@ -38,7 +39,7 @@ module Instruction_memory #(parameter MEM_FILE = "",
 `endif 
 `ifdef ENABLE_READ_INSTR_MEM
     always @(posedge clk) begin
-        if(mem_renable)
+        if(mem_renable && !l_pause)
             rdata <= MEM[addr_word]; 
             //rdata_pred <= MEM[addr_word+2];
     end

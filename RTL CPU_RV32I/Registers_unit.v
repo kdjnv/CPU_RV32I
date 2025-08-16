@@ -31,7 +31,6 @@ module Registers_unit(
     assign  data_rs1pred=   xreg[rs1pred];
 
 //Values destination
-    integer i;
     always @(posedge clk) begin
         if(data_valid && rd != 5'b00000) 
             xreg[rd] <= data_des;
