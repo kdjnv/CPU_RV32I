@@ -16,7 +16,7 @@ module branch_predictor (
 );
 
     // Bảng 2-bit saturating counter: 256 dòng
-    reg [1:0] BHT [255:0];  // 2-bit per entry. (Branch history table)
+    (* ram_style = "block" *) reg [1:0] BHT [255:0];  // 2-bit per entry. (Branch history table)
            
     integer i;
     initial begin

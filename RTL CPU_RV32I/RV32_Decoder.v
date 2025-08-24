@@ -72,9 +72,9 @@ module RV32_Decoder(
     output          en_rd,
 
 //decode CSR
-    output  [3:0]   pred,
-    output  [3:0]   succ,
-    output  [11:0]  indcsr
+    output  [ 3:0]  pred,
+    output  [ 3:0]  succ,
+    output  [11:0]  csr_addr
 );
 
 /*
@@ -138,7 +138,7 @@ assign  regrd   =   instr_data[11:7];
 //FENCE: pred, succ; CSR;
 assign  pred    =   instr_data[27:24];
 assign  succ    =   instr_data[23:20];
-assign  indcsr  =   instr_data[31:20];
+assign  csr_addr  =   instr_data[31:20];
 
 //Enable rs1, rs2, rd
 assign  en_rd   =   (!insBRA)&(!insSTORE)&(!insFENCE)&(!(insSYS&funct3oh[0]));

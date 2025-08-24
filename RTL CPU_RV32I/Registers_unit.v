@@ -17,15 +17,14 @@ module Registers_unit(
 
 );
 //31 general-purpose registers x1–x31, which hold integer values.
-    reg     [31:0]  xreg[0:31];        
+    (* ram_style = "block" *) reg     [31:0]  xreg[0:31];        
     integer i;
     initial begin
         for (i = 0; i < 32; i = i + 1) begin
             xreg[i] = 32'h00000000;
         end
     end
-    
-//Values source
+
     assign  data_rs1    =   xreg[rs1];
     assign  data_rs2    =   xreg[rs2];
     assign  data_rs1pred=   xreg[rs1pred];

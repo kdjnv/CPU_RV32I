@@ -175,6 +175,12 @@ module uart_ip #(
     // --------------------------------------------------
     // Instantiation: UART transmitter
     // --------------------------------------------------
+wire clkuart;
+//    Gowin_CLKDIV CLKDIV2(
+//        .clkout(clkuart), //output clkout
+//        .hclkin(clk), //input hclkin
+//        .resetn(rst) //input resetn
+//    );
     UART #(
         .CLOCK    (27_000_000),  
         .BAUD_RATE(115_200)

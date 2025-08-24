@@ -20,29 +20,22 @@ module Instruction_memory #(parameter MEM_FILE = "",
     (* ram_style = "block" *) reg [31:0] MEM [0:SIZE-1];            //1024 * 4 = 4096 = 4Kb 
     integer i;
     initial begin
-        for(i = 0; i < 2000; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
-        for(i = 2000; i < 4000; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
-        for(i = 4000; i < SIZE; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
         $readmemh(MEM_FILE,MEM);
     end
 
 //read instr
     reg     [31: 0] rdata;  assign mem_rdata = rdata;
 `ifdef PREDICT_EN
-    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = MEM[mem_addrpred[31:2]];   
+    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = rdata_pred;   
 `endif 
 `ifdef ENABLE_READ_INSTR_MEM
     always @(posedge clk) begin
-        if(mem_renable && !l_pause)
+        if(mem_renable && !l_pause) begin
             rdata <= MEM[addr_word]; 
-            //rdata_pred <= MEM[addr_word+2];
+            rdata_pred <= MEM[mem_addrpred[31:2]+1];
+        end
     end
+
 `endif
 
 //write instr

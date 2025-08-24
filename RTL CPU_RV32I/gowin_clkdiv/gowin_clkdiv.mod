@@ -10,5 +10,5 @@
 -path D:/Gowin/Gowin_V1.9.10.03_Education_x64/IDE/bin/Documents/RV32I/src/gowin_clkdiv/
 -type CLKDIV
 -file_type vlg
--division_factor 8
+-division_factor 2
 -calib false

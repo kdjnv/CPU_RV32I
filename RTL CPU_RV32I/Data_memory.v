@@ -20,15 +20,15 @@ module Data_memory #(parameter MEM_FILE = "",
     (* ram_style = "block" *) reg [31:0] MEM [0:SIZE-1];            //4096 * 4 = 16Kb
     integer i;
     initial begin
-        for(i = 0; i < 2000; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
-        for(i = 2000; i < 4000; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
-        for(i = 4000; i < SIZE; i = i+1) begin
-            MEM[i] = 32'h00000000;
-        end
+//        for(i = 0; i < 2000; i = i+1) begin
+//            MEM[i] = 32'h00000000;
+//        end
+//        for(i = 2000; i < 4000; i = i+1) begin
+//            MEM[i] = 32'h00000000;
+//        end
+//        for(i = 4000; i < SIZE; i = i+1) begin
+//            MEM[i] = 32'h00000000;
+//        end
         $readmemh(MEM_FILE,MEM);
     end
     wire    [31:0]  addr_word;   assign addr_word = mem_addr[31:2]; //because MEM 32bit

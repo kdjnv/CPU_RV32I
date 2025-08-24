@@ -152,7 +152,7 @@ wire [31:0] BAUDR;
     reg r_busy_txnot = 1'b0;
 
     assign o_busy_tx = r_busy_txfast || r_busy_tx;
-    always @(posedge i_clk) begin
+    always @(*) begin
         if (!i_rst || !i_en) begin
             r_busy_txfast = 0;
 		end

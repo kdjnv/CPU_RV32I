@@ -2,8 +2,14 @@ module RV32I_core(
     input           clk,    
     input           rst,
 
-    input           uart_rx,
-    output          uart_tx
+    output  [31:0 ] peri_addr,
+    output  [31:0 ] peri_wdata,
+    output  [ 3:0 ] peri_wmask,
+    input   [31:0 ] peri_rdata,
+    output          peri_wen,
+    output          peri_ren,
+
+    output          s3_sel_uart
 );
 /*===========================================================================
 1. Basic Mode (No Pipeline – 5 Cycles per Instruction)
@@ -39,8 +45,8 @@ modes.
 ===========================================================================*/
 `define FIVES_PIPELINE_EN
 `define DEBUG_EN
-
-
+//`define CLKDIV8
+//`define CLK60M
 
 `ifdef FIVE_STATE_EN
     `undef THREE_STATE_EN
@@ -55,7 +61,8 @@ modes.
     `undef FIVE_STATE_EN
 `endif
 
-//`define CLKDIV8
+
+
 
 localparam  INSTR_FIRST     =   32'h00000000;
 localparam  INSTR_NOP       =   32'h00000013;
@@ -86,45 +93,53 @@ localparam  FetADec         =   5'b00001 <<  FD;
 localparam  ExeAMem         =   5'b00001 <<  EM;
 localparam  WRegOMem        =   5'b00001 <<  WM;
 
+localparam  CLOCKSYS        =   27;//27Mhz
+
+
+assign      peri_addr       =   mem_addr;
+assign      peri_wdata      =   memd_sdata;
+assign      peri_wmask      =   memd_mask;
+assign      peri_wen        =   insSTORE;
+assign      peri_ren        =   memd_lready & insLOAD;
+
+
+
+
 wire    [31:0 ] memd_ldata, memins_rdata;
 
 reg     [31:0 ] processor_data;
-wire    [31:0 ] rdata_uart;
 wire            s0_sel_mem;
-wire            s3_sel_uart;
 wire clksys;
 
 `ifdef FIVE_STATE_EN
     always @(*) begin
-        case({s3_sel_uart, s0_sel_mem})
-            2'b01: processor_data = memd_ldata;
-            2'b10: processor_data = rdata_uart;
+        case(s0_sel_mem)
+            1'b1: processor_data = memd_ldata;
+            1'b0: processor_data = peri_rdata;
             default: processor_data = 32'h00000000;
         endcase
     end
 `endif
 `ifdef THREE_STATE_EN
     always @(*) begin
-        case({s3_sel_uart, s0_sel_mem})
-            2'b01: processor_data = memd_ldata;
-            2'b10: processor_data = rdata_uart;
+        case(s0_sel_mem)
+            1'b1: processor_data = memd_ldata;
+            1'b0: processor_data = peri_rdata;
             default: processor_data = 32'h00000000;
         endcase
     end
 `endif
 `ifdef FIVES_PIPELINE_EN
     reg s0_sel_memshift1;
-    reg s3_sel_uartshift1;
 
     always @(posedge clksys) begin
         s0_sel_memshift1 <= s0_sel_mem;
-        s3_sel_uartshift1 <= s3_sel_uart;
     end
 
     always @(*) begin
-        case({s3_sel_uartshift1, s0_sel_memshift1})
-            2'b01: processor_data = memd_ldata;
-            2'b10: processor_data = rdata_uart;
+        case(s0_sel_memshift1)
+            1'b1: processor_data = memd_ldata;
+            1'b0: processor_data = peri_rdata;
             default: processor_data = 32'h00000000;
         endcase
     end
@@ -132,14 +147,28 @@ wire clksys;
 
     
 `ifndef CLKDIV8
-    assign clksys = clk;
+`ifndef CLK60M
+    assign clksys = clk;//27M
 `endif
+`endif
+
 `ifdef CLKDIV8
-    Gowin_CLKDIV your_instance_name(
+`ifndef CLK60M
+    Gowin_CLKDIV CLKDIV8(
         .clkout(clksys), //output clkout
         .hclkin(clk), //input hclkin
         .resetn(rst) //input resetn
     );
+`endif
+`endif
+
+`ifdef CLK60M
+`ifndef CLKDIV8
+    Gowin_rPLL CLK60M(
+        .clkout(clksys), //output clkout
+        .clkin(clk) //input clkin
+    );
+`endif
 `endif
 
 
@@ -179,7 +208,7 @@ wire            en_rs2;
 wire            en_rd;
 wire    [ 3:0 ] pred;
 wire    [ 3:0 ] succ;
-wire    [11:0 ] indcsr;
+wire    [11:0 ] csr_addr;
 
 
 RV32_Decoder Maindecoder(
@@ -207,7 +236,7 @@ RV32_Decoder Maindecoder(
     .en_rd              (en_rd),
     .pred               (pred),
     .succ               (succ),
-    .indcsr             (indcsr)
+    .csr_addr           (csr_addr)
 );
 
 
@@ -235,6 +264,7 @@ wire            flag_branch;
 reg             predict_taken2  =   VALUE_RESET;
 
 reg     [31:0 ] PCnext          =   INSTR_FIRST;
+reg     [31:0 ] PCnext_fast     =   INSTR_FIRST;
 reg     [31:0 ] PCnext_pred     =   INSTR_FIRST;
 reg             wrong_pred      =   VALUE_RESET;
 reg             wrong_predshift1;
@@ -247,10 +277,18 @@ wire            isRAW_Hazardrs1_2cyc_forJALR;   //Vi JALR su du data rs1
 Instruction_memory #(
 //    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
     .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/Project_I2C/firmware/firmware_instr.hex"),
-    .SIZE       (4096)  //4Kb
+    .SIZE       (4096)  //64Kb
 ) ins_mem(
     .clk            (clksys),
+`ifdef FIVES_PIPELINE_EN
     .l_pause        (isRAW_Hazardrs1_2cyc_forJALR),
+`endif
+`ifdef THREE_STATE_EN
+    .l_pause        (1'b0),
+`endif
+`ifdef FIVE_STATE_EN
+    .l_pause        (1'b0),
+`endif
     .mem_addr       (memins_addr),
     .mem_addrpred   (PCnext),
     .mem_rdata      (memins_rdata),
@@ -398,6 +436,14 @@ reg     [ 4:0 ] regrd_shifthz1  =   5'h00;          //Du lai rd 1 chu ki truoc d
 reg     [ 4:0 ] regrd_shifthz2  =   5'h00;          //Du lai rd 2 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
 reg     [ 4:0 ] regrd_shifthz3  =   5'h00;          //Du lai rd 3 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
 
+reg     [ 4:0 ] regrs1_shifthz1 =   5'h00;          //Du lai rs1 1 chu ki truoc de so sanh. Phục vụ phát hiện hazard 1 chu kì
+reg     [ 4:0 ] regrs1_shifthz2 =   5'h00;          //Du lai rs1 2 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
+reg     [ 4:0 ] regrs1_shifthz3 =   5'h00;          //Du lai rs1 3 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
+
+reg     [11:0 ] csr_addr_shift1 =   5'h00;         //Du lai csr_addr 1 chu ki truoc de so sanh. Phục vụ phát hiện hazard 1 chu kì
+reg     [11:0 ] csr_addr_shift2 =   5'h00;         //Du lai csr_addr 2 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
+reg     [11:0 ] csr_addr_shift3 =   5'h00;         //Du lai csr_addr 3 chu ki truoc de so sanh. Phục vụ phát hiện hazard 2 chu kì
+
 
 wire            isRAW_Hazardrs1_1cyc_forWB;    //phat hien hazard 1 chu kì
 wire            isRAW_Hazardrs2_1cyc_forWB;    //phat hien hazard 1 chu kì
@@ -410,6 +456,10 @@ wire            isRAW_Hazardrs2_3cyc_forWB;    //phat hien hazard 2 chu kì
 reg             en_rdhz1        =   VALUE_RESET;
 reg             en_rdhz2        =   VALUE_RESET;
 reg             en_rdhz3        =   VALUE_RESET;
+
+reg             en_rs1hz1        =   VALUE_RESET;
+reg             en_rs1hz2        =   VALUE_RESET;
+
 //Result of ins
 reg     [31:0 ] result;
 wire    [31:0 ] resulthz_1cyc;
@@ -418,16 +468,17 @@ wire    [31:0 ] resulthz_3cyc;
 
 `ifdef THREE_STATE_EN
     assign data_rs2fn   =   (insALUImm)?(((!funct3[1])&funct3[0])?regrs2:Immediate):data_rs2;
-    assign data_rs1fn   =   data_rs1;
+    assign data_rs1fn   =   (insSYS)?((funct3[2])?regrs1:data_rs1):data_rs1;
 `endif
 `ifdef FIVE_STATE_EN
     assign data_rs2fn   =   (insALUImm)?(((!funct3[1])&funct3[0])?regrs2:Immediate):data_rs2;
-    assign data_rs1fn   =   data_rs1;
+    assign data_rs1fn   =   (insSYS)?((funct3[2])?regrs1:data_rs1):data_rs1;
 `endif
 `ifdef FIVES_PIPELINE_EN
 wire    [31:0 ] data_rs1hz_1cyc;
 wire    [31:0 ] data_rs2hz_1cyc;
-wire    [31:0 ] temp_hz;
+wire    [31:0 ] temprs2_hz;
+wire    [31:0 ] temprs1_hz;
 
 wire    [31:0 ] data_rs1hz_2cyc;
 wire    [31:0 ] data_rs2hz_2cyc;
@@ -438,19 +489,20 @@ wire    [31:0 ] data_rs2hz_3cyc;
 reg     [31:0 ] mem_ldmaskshift1    =   VALUE_RESET32; 
 reg     [31:0 ] mem_ldmaskshift2    =   VALUE_RESET32; 
 
-    assign temp_hz          =   (insALUImm)?(((!funct3[1])&funct3[0])?regrs2:Immediate):data_rs2;
+    assign temprs2_hz       =   (insALUImm)?(((!funct3[1])&funct3[0])?regrs2:Immediate):data_rs2;
+    assign temprs1_hz       =   (insSYS)?((funct3[2])?regrs1:data_rs1):data_rs1;
     assign data_rs2hz_1cyc  =   (isRAW_Hazardrs2_1cyc_forWB)?((insLOADshift1)?mem_ldmask:resulthz_1cyc):
-                                                               temp_hz;
+                                                               temprs2_hz;
     assign data_rs1hz_1cyc  =   (isRAW_Hazardrs1_1cyc_forWB)?((insLOADshift1)?mem_ldmask:resulthz_1cyc):
-                                                               data_rs1;
+                                                               temprs1_hz;
     assign data_rs2hz_2cyc  =   (isRAW_Hazardrs2_2cyc_forWB)?((insLOADshift2)?mem_ldmaskshift1:resulthz_2cyc):
-                                                               temp_hz;
+                                                               temprs2_hz;
     assign data_rs1hz_2cyc  =   (isRAW_Hazardrs1_2cyc_forWB)?((insLOADshift2)?mem_ldmaskshift1:resulthz_2cyc):
-                                                               data_rs1;
+                                                               temprs1_hz;
     assign data_rs2hz_3cyc  =   (isRAW_Hazardrs2_3cyc_forWB)?((insLOADshift3)?mem_ldmaskshift2:resulthz_3cyc):
-                                                               temp_hz;
+                                                               temprs2_hz;
     assign data_rs1hz_3cyc  =   (isRAW_Hazardrs1_3cyc_forWB)?((insLOADshift3)?mem_ldmaskshift2:resulthz_3cyc):
-                                                               data_rs1;
+                                                               temprs1_hz;
 
     assign data_rs2fn       =   (isRAW_Hazardrs2_1cyc_forWB)?data_rs2hz_1cyc:
                                 (isRAW_Hazardrs2_2cyc_forWB)?data_rs2hz_2cyc:
@@ -462,15 +514,18 @@ reg     [31:0 ] mem_ldmaskshift2    =   VALUE_RESET32;
 
 
 
-
+wire    [31:0 ] csr_rdata;
 ALU_unit ALU(
     .isALUimm   (insALUImm),
     .isALUreg   (insALUReg),
     .isBranch   (insBRA),
+    .isSYS      (insSYS),
     .funct3oh   (funct3oh),
+    .funct3     (funct3),
     .funct7     (funct7),
     .rs1        (data_rs1fn),
     .rs2        (data_rs2fn),
+    .csr_rdata  (csr_rdata),
     .result     (result_ALU),
     .correct    (flag_branch)
 );
@@ -479,9 +534,9 @@ ALU_unit ALU(
 
 /*---------------------------------------------------------
 This block contains 32 general-purpose 32-bit registers (x0–x31).
-Register x0 is hardwired to zero and cannot be modified.
-The register file supports two read ports and one write port, allowing simultaneous access to rs1, rs2, and rd operands. 
-It is used for storing intermediate and final results during instruction execution.
+Register x0 is hardwired to zero and cannot be modified. The register file supports
+two read ports and one write port, allowing simultaneous access to rs1, rs2, and rd
+operands. It is used for storing intermediate and final results during instruction execution.
 ---------------------------------------------------------*/
 wire    [31:0 ] data_desfn;
 wire    [ 4:0 ] regrdfn;
@@ -508,11 +563,15 @@ wire    [31:0 ] data_rs1pred;
 wire    [ 4:0 ] regrs1pred;
 reg             data_valid;
 
+//wire    [31:0 ] csr_rdata;
+reg             csr_we;
+reg     [31:0 ] csr_wdata = VALUE_RESET32;
 
 
 Registers_unit Regunit(
     .clk            (clksys), 
     .rst            (rst),
+
     .rs1            (regrs1),
     .rs1pred        (regrs1pred),
     .rs2            (regrs2),
@@ -526,27 +585,51 @@ Registers_unit Regunit(
 
 
 
-/*---------------------------------------------------------
-The Universal Asynchronous Receiver Transmitter (UART) enables asynchronous serial communication by transmitting and receiving data over tx and rx lines.
-It supports configurable baud rate and basic control features, providing status flags to indicate transmission and reception states.
----------------------------------------------------------*/
-uart_ip uart_unit(
-    .clk        (clksys),
-    .rst        (rst),
 
-    .waddr      ({4'h0, mem_addr[27:0]}),
-    .wdata      (memd_sdata),
-    .wen        (s3_sel_uart & (|memd_mask) & insSTORE),///////////////////////////
-    .wstrb      (memd_mask),
-    .wready     (),
-    .raddr      ({4'h0, mem_addr[27:0]}),
-    .ren        (s3_sel_uart & memd_lready & insLOAD),/////////////////////////////
-    .rdata      (rdata_uart),
-    .rvalid     (),
-
-    .o_uart_tx  (uart_tx),
-    .i_uart_rx  (uart_rx)
+/*--------------------------------------------------------------------
+This module implements a simplified RISC-V CSR unit for machine mode. It contains 
+key machine CSRs such as mstatus, mie, mtvec, mepc, mcause, mtval, and mip, and
+also supports counters like cycle, instret, and mtime. The unit updates counters
+every clock cycle, allows CSR read/write through addresses, and automatically upd-
+-ates trap-related CSRs (mepc, mcause, mtval) when a trap occurs. It provides a s-
+-tandard interface for CPU core access to control, status, and performance monito-
+-ring registers.
+--------------------------------------------------------------------*/
+reg     [11:0 ] csr_addrpl;
+reg     [63:0 ] csr_instret =   64'b0;
+reg     [63:0 ] real_mtime  =   64'b0;
+reg     [ 7:0 ] cnt         =   8'b1;
+CSR_unit CSRreg(
+    .clk            (clksys), 
+    .rst            (rst),
+    .csr_addrr      (csr_addr),
+`ifndef FIVES_PIPELINE_EN
+    .csr_addrw      (csr_addr),
+`endif
+`ifdef FIVES_PIPELINE_EN
+    .csr_addrw      (csr_addrpl),
+`endif
+    .csr_wdata      (csr_wdata),
+    .csr_we         (csr_we),
+    .csr_rdata      (csr_rdata),
+    .csr_instret    (csr_instret),
+    .real_mtime     (real_mtime)    //tick
 );
+
+//Count time (1tick = 1us)
+always @(posedge clksys) begin
+    if(!rst) begin
+        cnt <= 1;
+        real_mtime <= 64'b0;
+    end
+    else begin
+        cnt <= cnt + 1;
+        if(cnt == CLOCKSYS) begin
+            cnt <= 1;
+            real_mtime <= real_mtime + 1;
+        end
+    end
+end
 
 
 reg     [31:0 ] PC      =   INSTR_FIRST;    //The program counter (PC) is a 32-bit register that holds the address of the current instruction being executed. 
@@ -588,6 +671,7 @@ No pileline
             case(1'b1)
                 state[IF]   : begin
                     data_valid <= 1'b0;
+                    csr_we <= 1'b0;
                     //PC <= PCnext;
                     state <= Decodeoh;    //ID
                 end
@@ -623,7 +707,10 @@ No pileline
                         end
                         insJALR: begin
                             result <= PC + 4;
-                            PCnext <= data_rs1 + Immediate;
+                            PCnext <= (data_rs1 + Immediate) & ~32'h1;
+                        end
+                        insSYS: begin
+                            result <= result_ALU;
                         end
                         default: state <= Fetchoh;
                     endcase
@@ -653,9 +740,16 @@ No pileline
                             data_des <= result;
                             data_valid <= 1'b1;
                         end
+                        insSYS: begin
+                            data_valid <= 1'b1;
+                            data_des <= csr_rdata;
+                            csr_we <= !(regrs1 == 5'h00 && en_rs1);
+                            csr_wdata <= result;
+                        end
                     endcase
                     state <= Fetchoh;
                     PC <= PCnext;               //thay doi PC de fetch
+                    csr_instret <= csr_instret + 1;
                 end
             endcase
         end
@@ -729,13 +823,20 @@ No pipeline
                         insJALR: begin
                             data_valid <= 1'b1;
                             result <= PC + 4;
-                            PCnext <= data_rs1 + Immediate;
+                            PCnext <= (data_rs1 + Immediate) & ~32'h1;
+                        end
+                        insSYS: begin
+                            data_valid <= 1'b1;
+                            result <= csr_rdata;
+                            csr_we <= !(regrs1 == 5'h00 && en_rs1);
+                            csr_wdata <= result_ALU;
                         end
                     endcase    
                     if (!(insBRA||insJAL||insJALR)) PCnext <= PC + 4;
                     state <= WRegOMem;
                 end
                 state[WM]: begin
+                    csr_we <= 1'b0;
                     case(1'b1)
                         insLOAD: begin
                             memd_lready <= 1'b0;
@@ -754,8 +855,10 @@ No pipeline
                     PC <= PCnext;
                 end
                 state[FD]: begin
+                    csr_we <= 1'b0;
                     data_valid <= 1'b0;
                     state <= ExeAMem;
+                    csr_instret <= csr_instret + 1;
                 end
             endcase   
         end
@@ -823,6 +926,11 @@ reg     [31:0 ] mem_addrup      =   VALUE_RESET32;  //địa chỉ tới trướ
 reg     [31:0 ] result_shiftpl  =   VALUE_RESET32;
 reg     [31:0 ] result_shiftpl1 =   VALUE_RESET32;
 reg     [31:0 ] return_addrpred =   VALUE_RESET32;
+
+reg     [31:0 ] dwb_csr         =   VALUE_RESET32;
+reg     [31:0 ] dwb_csr_shiftpl =   VALUE_RESET32;
+reg     [31:0 ] dwb_csr_shiftpl1=   VALUE_RESET32;
+
 reg     [31:0 ] choose1_1       =   VALUE_RESET32;
 reg     [31:0 ] choose1_2       =   VALUE_RESET32;
 reg     [31:0 ] choose1_3       =   VALUE_RESET32;
@@ -1003,6 +1111,35 @@ RV32_Decoder Decoder_for_pred(
 ----------------------------------------------------------*/
     //Fetch
     
+//    always @(*) begin
+//        if(!rst) begin
+//            PCnext_fast = INSTR_FIRST + 4;
+//        end
+//        else begin
+//            PCnext_fast = PCnext + 4;
+//            (*parallel_case*)
+//            case(1'b1) 
+//                insJALpred: begin
+//                    PCnext_fast = PCnext + Immediatepred;
+
+//                end
+//                insJALRpred: begin
+//                    PCnext_fast = (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       :
+//                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
+//                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
+//                               data_rs1pred) + Immediatepred) & ~32'h1;
+
+//                end
+//                insBRApred: begin
+//                    PCnext_fast = (predict_taken)?PCnext + Immediatepred:PCnext+4;
+//                end
+//            endcase
+//            if(wrong_predfast) begin
+//                PCnext_fast = PCnext_pred;
+//            end
+//        end
+//    end
+    
     assign memins_addr = PC;
     assign memins_read = 1'b1;          //Luôn đọc
     always @(posedge clksys) begin
@@ -1042,20 +1179,18 @@ RV32_Decoder Decoder_for_pred(
                     //return_addrpred <= PC + 4;
                 end
                 insJALRpred: begin
-                    PCnext <= ((!en_pause)?((insLOAD)?mem_ldmask:result)                                         :
-                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)  :
-                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl) :
-                               data_rs1pred) + Immediatepred;
+                    PCnext <= (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       :
+                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
+                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
+                               data_rs1pred) + Immediatepred) & ~32'h1;
                     //return_addrpred <= PC + 4;
                 end
                 insBRApred: begin
                     PCnext <= (predict_taken)?PCnext + Immediatepred:PCnext+4;
                 end
-            endcase
+            endcase 
 
-            IDen <= 1'b1;
-
-            if(wrong_predfast ) begin
+            if(wrong_predfast) begin
                 PCnext <= PCnext_pred;
             end
 
@@ -1069,6 +1204,7 @@ RV32_Decoder Decoder_for_pred(
             choose1_1 <= PCnext + Immediatepred;    choose1_2 <= choose1_1; choose1_3 <= choose1_2;
             choose2_1 <= PCnext;                choose2_2 <= choose2_1; choose2_3 <= choose2_2;
 
+            IDen <= 1'b1;
             predict_taken1 <= predict_taken;    
             predict_taken2 <= predict_taken1;
             predict_taken3 <= predict_taken2;
@@ -1084,6 +1220,16 @@ RV32_Decoder Decoder_for_pred(
     always @(*) begin
         instr_data = memins_rdata;
     end
+    always @(posedge clk) begin
+        if(!rst || !IDen) begin
+            funct3shift1 <= 3'h0;
+        end
+        else begin
+            funct3shift1 <= funct3; 
+            if(wrong_pred || holdplus_forDE) funct3shift1 <= funct3shift1;
+        end
+    end
+
     always @(posedge clksys or negedge IDen) begin
         if (!rst || !IDen) begin
             EXen <= 1'b0;
@@ -1123,11 +1269,24 @@ RV32_Decoder Decoder_for_pred(
             regrd_shifthz1 <= regrd;
             regrd_shifthz2 <= regrd_shifthz1;
             regrd_shifthz3 <= regrd_shifthz2;
+
+            regrs1_shifthz1 <= regrs1;
+            regrs1_shifthz2 <= regrs1_shifthz1;
+            regrs1_shifthz3 <= regrs1_shifthz2;
+
+            csr_addr_shift1 <= csr_addr;
+            csr_addr_shift2 <= csr_addr_shift1;
+            csr_addr_shift3 <= csr_addr_shift2;
+
             regrs1pred_shift1 <= regrs1pred;
 
             en_rdhz1 <= en_rd;
             en_rdhz2 <= en_rdhz1;
             en_rdhz3 <= en_rdhz2;
+
+            en_rs1hz1 <= en_rs1;
+            en_rs1hz2 <= en_rs1hz1;
+
             en_rs1pred_shift1 <= en_rs1pred;
 
             // Lưu trễ 1 chu kỳ 
@@ -1137,8 +1296,7 @@ RV32_Decoder Decoder_for_pred(
             insBRAshift1     <= insBRA;         insLOADshift1    <= insLOAD;
             insSTOREshift1   <= insSTORE;       insSYSshift1     <= insSYS;
             insFENCEshift1   <= insFENCE;
-
-            funct3shift1     <= funct3;         funct3shift2     <= funct3shift1;
+     
 
             // Lưu trễ 2 chu kỳ 
             insALUImmshift2  <= insALUImmshift1;insALURegshift2  <= insALURegshift1;
@@ -1158,9 +1316,20 @@ RV32_Decoder Decoder_for_pred(
                 regrd_shifthz3 <= regrd_shifthz3;
                 regrs1pred_shift1 <= regrs1pred_shift1;
 
+                regrs1_shifthz1 <= regrs1_shifthz1;
+                regrs1_shifthz2 <= regrs1_shifthz2;
+                regrs1_shifthz3 <= regrs1_shifthz3;
+
+                csr_addr_shift1 <= csr_addr_shift1;
+                csr_addr_shift2 <= csr_addr_shift2;
+                csr_addr_shift3 <= csr_addr_shift3;
+
                 en_rdhz1 <= en_rdhz1;
                 en_rdhz2 <= en_rdhz2;
                 en_rdhz3 <= en_rdhz3;
+
+                en_rs1hz1 <= en_rs1hz1;
+                en_rs1hz2 <= en_rs1hz2;
                 en_rs1pred_shift1 <= en_rs1pred_shift1;
 
                 // Lưu trễ 1 chu kỳ (giữ nguyên chính nó)
@@ -1176,7 +1345,6 @@ RV32_Decoder Decoder_for_pred(
                 insSYSshift1     <= insSYSshift1;
                 insFENCEshift1   <= insFENCEshift1;
                 funct3shift1     <= funct3shift1;
-                funct3shift2     <= funct3shift2;
 
                 // Lưu trễ 2 chu kỳ (giữ nguyên chính nó)
                 insALUImmshift2  <= insALUImmshift2;
@@ -1205,7 +1373,7 @@ RV32_Decoder Decoder_for_pred(
 
             if(wrong_pred) begin
                 EXen <= 1'b0;                                       //Lập lại pipeline, xóa kết quả cũ
-            end 
+            end
         end
     end
 
@@ -1314,13 +1482,13 @@ RV32_Decoder Decoder_for_pred(
 //                    end
                     enUpdate <= 1'b1;
                 end
-                insLOAD: begin
+//                insLOAD: begin
 //                    mem_addr <= (isRAW_Hazardrs1_1cyc_forSTORE)?result + Immediate:
 //                                  (isRAW_Hazardrs1_2cyc_forSTORE)?result_shiftpl + Immediate:
 //                                                                  data_rs1 + Immediate;
 //                    memd_lready <= 1'b1;
-                end
-                insSTORE: begin
+//                end
+//                insSTORE: begin
 //                    mem_addr <=   (isRAW_Hazardrs1_1cyc_forSTORE)?result + Immediate:
 //                                  (isRAW_Hazardrs1_2cyc_forSTORE)?result_shiftpl + Immediate:
 //                                                                  data_rs1 + Immediate;
@@ -1328,7 +1496,7 @@ RV32_Decoder Decoder_for_pred(
 //                                     (isRAW_Hazardrs2_2cyc_forSTORE)?result_shiftpl:
 //                                                                     data_rs2;
 //                    memd_senable <= 1'b1;
-                end
+//                end
                 insALU: begin
                     result <= result_ALU;
                 end
@@ -1346,15 +1514,25 @@ RV32_Decoder Decoder_for_pred(
                     result <= PCshift1 + 4;               
                     //PCnext <= data_rs1 + Immediate;   //was predicted
                 end
+                insSYS: begin
+                    result <= csr_rdata;
+                    dwb_csr <= result_ALU;
+                end
             endcase
 
             result_shiftpl <= result;
             result_shiftpl1 <= result_shiftpl;
 
+            dwb_csr_shiftpl <= dwb_csr;
+            dwb_csr_shiftpl1 <= dwb_csr_shiftpl;
+
             holdplus_forEX <= 1'b0;
             if(wrong_pred || holdplus_forEX) begin  //Nếu phát hiện dự đoán sai -> dữ lại kết quả cũ 2 chu kì nữa
                 result_shiftpl <= result_shiftpl;
                 result_shiftpl1 <= result_shiftpl1;
+
+                dwb_csr_shiftpl <= dwb_csr_shiftpl;
+                dwb_csr_shiftpl1 <= dwb_csr_shiftpl1;
                 if(wrong_pred) holdplus_forEX <= 1'b1;
             end 
 
@@ -1382,19 +1560,19 @@ RV32_Decoder Decoder_for_pred(
                 mem_ldmaskshift2 <= mem_ldmaskshift2;
                 if(wrong_pred) holdplus_forMEM <= 1'b1;
             end 
-            if(insLOADshift1) begin
+//            if(insLOADshift1) begin
                 //mem_addr <= mem_addrup;
                 //memd_lready <= 1'b1;
-            end
-            else if(insSTOREshift1) begin
+//            end
+//            else if(insSTOREshift1) begin
                 //memd_sdata <= Store_datapl1;
                 //mem_addr <= mem_addrup;
                 //memd_senable <= 1'b1;
-            end
-            else begin
+//            end
+//            else begin
 //                memd_lready <= 1'b0;
 //                memd_senable <= 1'b0;
-            end
+//            end
             WBen <= 1'b1;
         end
     end
@@ -1420,8 +1598,21 @@ RV32_Decoder Decoder_for_pred(
                     regrd_shiftpl <= regrd_shiftpl2;
                     data_valid <= 1'b1;
                 end
-                default: data_valid <= 1'b0;
+                insSYSshift2: begin
+                    data_des <= result_shiftpl;
+                    regrd_shiftpl <= regrd_shiftpl2;
+                    data_valid <= 1'b1;
+
+                    csr_addrpl <= csr_addr_shift2;
+                    csr_we <= !(regrs1_shifthz2 == 5'h00 && en_rs1hz2);
+                    csr_wdata <= dwb_csr_shiftpl;
+                end
+                default:begin
+                    data_valid <= 1'b0;
+                    csr_we <= 1'b0;
+                end
             endcase
+            csr_instret <= csr_instret + 1;
         end
     end
 `endif

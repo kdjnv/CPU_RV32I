@@ -28,17 +28,41 @@ module regs_UART #(
     // U_RXDATA.DATA
     input [7:0] csr_u_rxdata_data_in,
 
-    // Local Bus
-    input  [ADDR_W-1:0] waddr,
-    input  [DATA_W-1:0] wdata,
-    input               wen,
-    input  [STRB_W-1:0] wstrb,
-    output              wready,
-    input  [ADDR_W-1:0] raddr,
-    input               ren,
-    output [DATA_W-1:0] rdata,
-    output              rvalid
+    // APB
+    input               psel,
+    input  [ADDR_W-1:0] paddr,
+    input               penable,
+    input               pwrite,
+    input  [DATA_W-1:0] pwdata,
+    input  [STRB_W-1:0] pstrb,
+    output [DATA_W-1:0] prdata,
+    output              pready,
+    output              pslverr
 );
+wire              wready;
+wire [ADDR_W-1:0] waddr;
+wire [DATA_W-1:0] wdata;
+wire              wen;
+wire [STRB_W-1:0] wstrb;
+wire [DATA_W-1:0] rdata;
+wire              rvalid;
+wire [ADDR_W-1:0] raddr;
+wire              ren;
+// APB interface
+assign prdata  = rdata;
+assign pslverr = 1'b0; // always OKAY
+assign pready  = wen             ? wready :
+                 (ren & penable) ? rvalid : 1'b1;
+
+// Local Bus interface
+assign waddr = paddr;
+assign wdata = pwdata;
+assign wstrb = pstrb;
+assign wen   = psel & penable & pwrite;
+
+assign raddr = paddr;
+assign ren   = psel & penable & (~pwrite);
+
 //------------------------------------------------------------------------------
 // CSR:
 // [0x0] - U_CTRL - UART Configuration Register
@@ -151,7 +175,7 @@ assign csr_u_ctrl_clk_out = csr_u_ctrl_clk_ff;
 
 always @(posedge clk) begin
     if (rst) begin
-        csr_u_ctrl_clk_ff <= 0;
+        csr_u_ctrl_clk_ff <= 8'h0;
     end else  begin
      if (csr_u_ctrl_wen) begin
             if (wstrb[1]) begin
@@ -189,8 +213,17 @@ end
 //---------------------
 reg  csr_u_stat_tbusy_ff;
 
-assign csr_u_stat_rdata[0] = csr_u_stat_tbusy_in;////////////////////////////////////////////////////////////Tự sửa giúp đọc ghi nhanh hơn phù hợp với tốc độ 1 chu kì/lệnh của cpu
+assign csr_u_stat_rdata[0] = csr_u_stat_tbusy_ff;
 
+
+always @(posedge clk) begin
+    if (rst) begin
+        csr_u_stat_tbusy_ff <= 1'b0;
+    end else  begin
+              begin            csr_u_stat_tbusy_ff <= csr_u_stat_tbusy_in;
+        end
+    end
+end
 
 
 //---------------------
