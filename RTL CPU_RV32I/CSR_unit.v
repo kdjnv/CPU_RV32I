@@ -10,11 +10,11 @@ module CSR_unit(
     output  reg [31:0] csr_rdata,   // dữ liệu đọc
 
     // Trap/interrupt input
-    input           trap_taken,     // khi có trap/interrupt
-    input   [31:0]  trap_vector,    // địa chỉ handler
-    input   [31:0]  trap_pc,        // PC gây ra trap
-    input   [31:0]  trap_cause,     // cause code
-    input   [31:0]  trap_tval,      // badaddr (load/store/fetch)
+//    input           trap_taken,     // khi có trap/interrupt
+//    input   [31:0]  trap_vector,    // địa chỉ handler
+//    input   [31:0]  trap_pc,        // PC gây ra trap
+//    input   [31:0]  trap_cause,     // cause code
+//    input   [31:0]  trap_tval,      // badaddr (load/store/fetch)
 
     // External inputs cho time và instret
     input   [63:0]  real_mtime,
@@ -22,13 +22,13 @@ module CSR_unit(
 );
 
     // CSR registers
-    reg [31:0] mstatus;
-    reg [31:0] mie;
-    reg [31:0] mtvec;
-    reg [31:0] mepc;
-    reg [31:0] mcause;
-    reg [31:0] mtval;
-    reg [31:0] mip;
+//    reg [31:0] mstatus;
+//    reg [31:0] mie;
+//    reg [31:0] mtvec;
+//    reg [31:0] mepc;
+//    reg [31:0] mcause;
+//    reg [31:0] mtval;
+//    reg [31:0] mip;
 
     // Counters
     reg [63:0] cycle;
@@ -52,37 +52,37 @@ module CSR_unit(
     // -------------------
     // CSR write logic
     // -------------------
-    always @(posedge clk) begin
-        if (!rst) begin
-            mstatus <= 32'h0;
-            mie     <= 32'h0;
-            mtvec   <= 32'h0;
-            mepc    <= 32'h0;
-            mcause  <= 32'h0;
-            mtval   <= 32'h0;
-            mip     <= 32'h0;
-        end else begin
-            if (csr_we) begin
-                case (csr_addrw)
-                    12'h300: mstatus <= csr_wdata;  // mstatus
-                    12'h304: mie     <= csr_wdata;  // mie
-                    12'h305: mtvec   <= csr_wdata;  // mtvec
-                    12'h341: mepc    <= csr_wdata;  // mepc
-                    12'h342: mcause  <= csr_wdata;  // mcause
-                    12'h343: mtval   <= csr_wdata;  // mtval
-                    12'h344: mip     <= csr_wdata;  // mip
-                    default: ;
-                endcase
-            end
+//    always @(posedge clk) begin
+//        if (!rst) begin
+//            mstatus <= 32'h0;
+//            mie     <= 32'h0;
+//            mtvec   <= 32'h0;
+//            mepc    <= 32'h0;
+//            mcause  <= 32'h0;
+//            mtval   <= 32'h0;
+//            mip     <= 32'h0;
+//        end else begin
+//            if (csr_we) begin
+//                case (csr_addrw)
+//                    12'h300: mstatus <= csr_wdata;  // mstatus
+//                    12'h304: mie     <= csr_wdata;  // mie
+//                    12'h305: mtvec   <= csr_wdata;  // mtvec
+//                    12'h341: mepc    <= csr_wdata;  // mepc
+//                    12'h342: mcause  <= csr_wdata;  // mcause
+//                    12'h343: mtval   <= csr_wdata;  // mtval
+//                    12'h344: mip     <= csr_wdata;  // mip
+//                    default: ;
+//                endcase
+//            end
 
-            // khi có trap → cập nhật trap CSR
-            if (trap_taken) begin
-                mepc   <= trap_pc;
-                mcause <= trap_cause;
-                mtval  <= trap_tval;
-            end
-        end
-    end
+             //khi có trap → cập nhật trap CSR
+//            if (trap_taken) begin
+//                mepc   <= trap_pc;
+//                mcause <= trap_cause;
+//                mtval  <= trap_tval;
+//            end
+//        end
+//    end
 
     // -------------------
     // CSR read logic
@@ -90,13 +90,13 @@ module CSR_unit(
     always @(*) begin
         case (csr_addrr)
             // machine-level CSRs
-            12'h300: csr_rdata = mstatus;
-            12'h304: csr_rdata = mie;
-            12'h305: csr_rdata = mtvec;
-            12'h341: csr_rdata = mepc;
-            12'h342: csr_rdata = mcause;
-            12'h343: csr_rdata = mtval;
-            12'h344: csr_rdata = mip;
+//            12'h300: csr_rdata = mstatus;
+//            12'h304: csr_rdata = mie;
+//            12'h305: csr_rdata = mtvec;
+//            12'h341: csr_rdata = mepc;
+//            12'h342: csr_rdata = mcause;
+//            12'h343: csr_rdata = mtval;
+//            12'h344: csr_rdata = mip;
 
             // counters (low/high)
             12'hC00: csr_rdata = cycle[31:0];    // cycle

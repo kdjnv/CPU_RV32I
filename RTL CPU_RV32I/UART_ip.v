@@ -1,94 +1,4 @@
 /*   
-
-    DTP D21DT166
-   module uart ip
-kết nối các module 
-với thanh ghi uart
-
-
-*/
-
-//module uart_ip #(
-//    parameter ADDR_W = 32,
-//    parameter DATA_W = 32,
-//    parameter STRB_W = DATA_W / 8
-//)(
-
-     
-//    input clk,
-//    input rst,
-
-
-//    input  [ADDR_W-1:0] waddr,
-//    input  [DATA_W-1:0] wdata,
-//    input               wen,
-//    input  [STRB_W-1:0] wstrb,
-//    output              wready,
-//    input  [ADDR_W-1:0] raddr,
-//    input               ren,
-//    output [DATA_W-1:0] rdata,
-//    output              rvalid,
-
-     
-
-//    output  o_uart_tx
-
-
-//);
-
-//    reg o_ready_reg;
-
-//    
-
-//    wire [7:0] csr_u_data_data_out;
-//    wire       o_ready;
-//    wire       csr_u_ctrl_start_out;
-
-
-//    regs_uart  uart_regs_interface_u0(
-
-//        .clk(clk),
-//        .rst(rst),
-//        .csr_u_data_data_out(csr_u_data_data_out),
-//        .csr_u_stat_ready_in(o_ready),
-//        .csr_u_stat_tx_done_in( !o_ready_reg & o_ready  ),
-//        .csr_u_ctrl_start_out(csr_u_ctrl_start_out),
-//        .waddr(waddr),
-//        .wdata(wdata),
-//        .wen(wen),
-//        .wstrb(wstrb),
-//        .wready(wready),
-//        .raddr(raddr),
-//        .ren(ren),
-//        .rdata(rdata),
-//        .rvalid(rvalid)
-
-//    );
-
-
-//    uart_tx uart_transmitter_u1 (
-
-//        .i_clk(clk),
-//        .i_rst(rst),
-//        .i_data(csr_u_data_data_out),
-//        .i_valid(csr_u_ctrl_start_out),
-//        .o_ready(o_ready),
-//        .o_uart_tx(o_uart_tx)
-
-//    );
-
-
-//    always @(posedge clk) begin
-//        o_ready_reg <= o_ready;
-//    end
-
-
-
-//endmodule
-
-
-
-/*   
     DTP D21DT166
     module uart ip
     kết nối các module 
@@ -101,23 +11,23 @@ module uart_ip #(
     parameter STRB_W = DATA_W / 8
 )(
     // System
-    input                   clk,
-    input                   rst,
+    input           PCLK,
+    input           PRESETn,
 
-    // Local Bus
-    input  [ADDR_W-1:0]     waddr,
-    input  [DATA_W-1:0]     wdata,
-    input                   wen,
-    input  [STRB_W-1:0]     wstrb,
-    output                  wready,
-    input  [ADDR_W-1:0]     raddr,
-    input                   ren,
-    output [DATA_W-1:0]     rdata,
-    output                  rvalid,
+    // APB
+    input   [31:0]  PADDR,
+    input           PWRITE,
+    input   [31:0]  PWDATA,
+    input   [ 3:0]  PSTRB,
+    input           PSEL,
+    input           PENABLE,
+    output  [31:0]  PRDATA,
+    output          PREADY,
+    output          PSLVERR,
 
     // UART TX RX
-    output                  o_uart_tx,
-    input                   i_uart_rx
+    output          o_uart_tx,
+    input           i_uart_rx
 );
 
     // --------------------------------------------------
@@ -126,7 +36,7 @@ module uart_ip #(
     wire        csr_en;
     wire        csr_strtx;
     wire [3:0]  csr_br;
-    wire [7:0]  csr_clk_cfg;
+    wire [7:0]  csr_PCLK_cfg;
     wire [7:0]  csr_tx_data;
 
     wire        uart_busy;
@@ -140,15 +50,15 @@ module uart_ip #(
         .ADDR_W (ADDR_W),
         .DATA_W (DATA_W),
         .STRB_W (STRB_W)
-    ) regs_if (
-        .clk                    (clk),
-        .rst                    (!rst),
+    ) regs_uart (
+        .clk                    (PCLK),
+        .rst                    (!PRESETn),
 
         // CTRL outputs
         .csr_u_ctrl_en_out      (csr_en),
         .csr_u_ctrl_strtx_out   (csr_strtx),
         .csr_u_ctrl_br_out      (csr_br),
-        .csr_u_ctrl_clk_out     (csr_clk_cfg),
+        .csr_u_ctrl_clk_out     (csr_PCLK_cfg),
 
         // STAT inputs
         .csr_u_stat_tbusy_in    (uart_busy),
@@ -160,38 +70,32 @@ module uart_ip #(
         // RXDATA 
         .csr_u_rxdata_data_in   (uart_rx_data),
 
-        // Local bus
-        .waddr                  (waddr),
-        .wdata                  (wdata),
-        .wen                    (wen),
-        .wstrb                  (wstrb),
-        .wready                 (wready),
-        .raddr                  (raddr),
-        .ren                    (ren),
-        .rdata                  (rdata),
-        .rvalid                 (rvalid)
+        // APB
+        .psel           (PSEL),
+        .paddr          (PADDR),
+        .penable        (PENABLE),
+        .pwrite         (PWRITE),
+        .pwdata         (PWDATA),
+        .pstrb          (PSTRB),
+        .prdata         (PRDATA),
+        .pready         (PREADY),
+        .pslverr        (PSLVERR)
     );
 
     // --------------------------------------------------
     // Instantiation: UART transmitter
     // --------------------------------------------------
-wire clkuart;
-//    Gowin_CLKDIV CLKDIV2(
-//        .clkout(clkuart), //output clkout
-//        .hclkin(clk), //input hclkin
-//        .resetn(rst) //input resetn
-//    );
     UART #(
         .CLOCK    (27_000_000),  
         .BAUD_RATE(115_200)
     ) uart_tx_inst (
-        .i_clk      (clk),
-        .i_rst      (rst),
+        .i_clk      (PCLK),
+        .i_rst      (PRESETn),
         .i_en       (csr_en),
         .i_str_tx   (csr_strtx),
         .i_data_tx  (csr_tx_data),
         .i_br       (csr_br),
-        .i_clk_dec  (csr_clk_cfg),
+        .i_clk_dec  (csr_PCLK_cfg),
 
         // RX không dùng
         .i_RX       (i_uart_rx),

@@ -26,13 +26,13 @@ module Instruction_memory #(parameter MEM_FILE = "",
 //read instr
     reg     [31: 0] rdata;  assign mem_rdata = rdata;
 `ifdef PREDICT_EN
-    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = rdata_pred;   
+    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = MEM[mem_addrpred[31:2]];   
 `endif 
 `ifdef ENABLE_READ_INSTR_MEM
     always @(posedge clk) begin
         if(mem_renable && !l_pause) begin
             rdata <= MEM[addr_word]; 
-            rdata_pred <= MEM[mem_addrpred[31:2]+1];
+            //rdata_pred <= MEM[mem_addrpred[31:2]+1];
         end
     end
 

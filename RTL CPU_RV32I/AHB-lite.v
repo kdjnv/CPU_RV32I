@@ -1,7 +1,3 @@
-`define HTRANS_IDLE   2'b00
-`define HTRANS_BUSY   2'b01
-`define HTRANS_NONSEQ 2'b10
-`define HTRANS_SEQ    2'b11
 
 
 // -------------------------------------------------------------
@@ -24,27 +20,32 @@ module ahb3lite_master_adapter (
     input       [ 1:0 ] peri_htrans,
 
     // Read return (per beat)
-    output reg          peri_rvalid,
-    output reg          peri_wdone,
-    output reg  [31:0]  peri_rdata,
+    output              peri_rvalid,        
+    output              peri_wdone,
+    output      [31:0]  peri_rdata,
     output              peri_err,
 
+
+    output      [31:0] PWDATAT,
     // AHB‑Lite master bus
+    
+    output reg  [ 3:0] HWSTRB,
     output reg  [31:0] HADDR,
     output reg   [1:0] HTRANS,
     output reg         HWRITE,
     output reg   [2:0] HSIZE,
     output       [2:0] HBURST,
-    output reg   [3:0] HPROT,           //Chưa dùng
-    output reg         HMASTLOCK,       //Chưa dùng
+//    output reg   [3:0] HPROT,           //Chưa dùng
+//    output reg         HMASTLOCK,       //Chưa dùng
     output reg  [31:0] HWDATA,
     input  wire [31:0] HRDATA,
     input  wire        HREADY,
     input  wire        HRESP
 );
-    localparam S_IDLE = 2'd0,
-               S_ADDR = 2'd1,
-               S_DATA = 2'd2;
+    localparam HTRANS_IDLE = 2'b00;
+    localparam HTRANS_BUSY = 2'b01;
+    localparam HTRANS_NONSEQ = 2'b10;
+    localparam HTRANS_SEQ = 2'b11;
 
     reg [1:0] state;
     reg [4:0] count_burst;
@@ -97,44 +98,58 @@ module ahb3lite_master_adapter (
 
     assign  HBURST      =   peri_burst;
     assign  peri_rdata  =   HRDATA;
-    assign  peri_rvalid =   HREADY && (peri_htrans && burst_done);
-    assign  peri_wdone  =   HREADY && (peri_htrans && burst_done);
+    assign  peri_rvalid =   HREADY && peri_ren;
+    assign  peri_wdone  =   HREADY && peri_wen;
     assign  peri_err    =   HRESP;
+    assign  PWDATAT     =   peri_wdata;
+
+    reg [31:0] HWDATA_ff;
+    always @(posedge HCLK) begin
+        if(!HRESETn) begin
+            HWDATA_ff <= 32'h0;
+        end
+        else begin
+            HWDATA_ff <= peri_wdata;
+        end
+    end
+
     
-    
+    reg [31:0] t_addr;
+    always @(*) begin
+        HWSTRB = peri_wmask;
+        HTRANS = peri_htrans;
+        HWDATA = HWDATA_ff;
+        HSIZE  = f_hsize_from_wstrb(peri_wmask);
+        HWRITE = |peri_wmask && peri_wen;
+        HADDR  = (peri_htrans == HTRANS_SEQ)?peri_addr + f_plus_from_wstrb(peri_wmask)*count_burst:peri_addr;
+
+        if(state == 0) begin
+            HWSTRB = HWSTRB;   HTRANS = HTRANS;
+            HWDATA = HWDATA;   HSIZE  = HSIZE;
+            HWRITE = HWRITE;   HADDR  = HADDR;
+        end
+    end
+
+
 
 
     always @(posedge HCLK) begin
         if (!HRESETn) begin
-            state <= S_IDLE;
+            state <= 2'b00;
             count_burst <= 0;
-            beats_total <= 4'd0; beats_left <= 4'd0;
         end else begin            
-
             case (peri_htrans)
                 HTRANS_IDLE: begin
-                    HTRANS <= 2'b00;        //IDLE
+                    state <= 2'b0;
                 end
-                HTRANS_BUSY: begin        
-                    HTRANS <= 2'b01;        //BUSY
-                    HWDATA <= HWDATA;   HWRITE <= HWRITE;
-                    HSIZE  <= HSIZE;    HADDR  <= HADDR;
+                HTRANS_BUSY: begin 
+                    state <= 2'b0;
                 end
-                HTRANS_NONSEQ: begin        
-                    HTRANS <= 2'b10;        //NONSEQ 
-                    HADDR  <= peri_addr;
-                    HWRITE <= |peri_wmask && peri_wen;
-                    HSIZE  <= f_hsize_from_wstrb(peri_wmask);
-                    HWDATA <= peri_wdata;
+                HTRANS_NONSEQ: begin
+                    state <= 2'b0;
                 end
                 HTRANS_SEQ: begin 
-                    HTRANS <= 2'b11;        //SEQ
-                    HADDR <= peri_addr + f_plus_from_wstrb(peri_wmask)*count_burst;//cần bổ sung khi wrap
-                    HWRITE <= |peri_wmask && peri_wen;
-                    HSIZE  <= f_hsize_from_wstrb(peri_wmask);
-                    HWDATA <= peri_wdata;
                     count_burst <= count_burst + 1;
-
                     case(state) 
                         2'b00: begin
 
@@ -148,7 +163,8 @@ module ahb3lite_master_adapter (
                                     cnt_burst_max <= f_count_from_burst(peri_burst)-1;  //do bắt đầu của SEQ bao giờ cũng là NONSEQ
                                     state <= 2'b01;                                     //4 8 16
                                 end
-                            
+                            endcase
+
                         end
                         2'b01: begin
                             if(count_burst == cnt_burst_max - 1) state <= 2'b11;
@@ -158,9 +174,6 @@ module ahb3lite_master_adapter (
                         end
                         2'b11: begin
                             count_burst <= count_burst;
-                            HWDATA <= HWDATA;   HWRITE <= HWRITE;
-                            HSIZE  <= HSIZE;    HADDR  <= HADDR;
-                            HTRANS <= HTRANS;
                         end
                     endcase
                 end
@@ -168,6 +181,8 @@ module ahb3lite_master_adapter (
         end
     end
 endmodule
+
+
 
 
 

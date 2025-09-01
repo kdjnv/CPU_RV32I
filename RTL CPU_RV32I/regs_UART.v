@@ -52,7 +52,7 @@ wire              ren;
 assign prdata  = rdata;
 assign pslverr = 1'b0; // always OKAY
 assign pready  = wen             ? wready :
-                 (ren & penable) ? rvalid : 1'b1;
+                 (ren)           ? rvalid : 1'b1;
 
 // Local Bus interface
 assign waddr = paddr;
@@ -76,8 +76,8 @@ assign csr_u_ctrl_wen = wen && (waddr == 32'h0);
 
 wire csr_u_ctrl_ren;
 assign csr_u_ctrl_ren = ren && (raddr == 32'h0);
-reg csr_u_ctrl_ren_ff;
-always @(posedge clk) begin
+reg csr_u_ctrl_ren_ff = 1'b0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_ctrl_ren_ff <= 1'b0;
     end else begin
@@ -89,13 +89,13 @@ end
 // U_CTRL[0] - EN - Enable UART
 // access: rw, hardware: o
 //---------------------
-reg  csr_u_ctrl_en_ff;
+reg  csr_u_ctrl_en_ff = 1'b0;
 
 assign csr_u_ctrl_rdata[0] = csr_u_ctrl_en_ff;
 
 assign csr_u_ctrl_en_out = csr_u_ctrl_en_ff;
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_ctrl_en_ff <= 1'b0;
     end else  begin
@@ -115,13 +115,13 @@ end
 // U_CTRL[1] - STRTX - Start Transmission (1 cycle pulse)
 // access: rw, hardware: o
 //---------------------
-reg  csr_u_ctrl_strtx_ff;
+reg  csr_u_ctrl_strtx_ff = 1'b0;
 
 assign csr_u_ctrl_rdata[1] = csr_u_ctrl_strtx_ff;
 
 assign csr_u_ctrl_strtx_out = csr_u_ctrl_strtx_ff;
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_ctrl_strtx_ff <= 1'b0;
     end else  begin
@@ -141,13 +141,13 @@ end
 // U_CTRL[7:4] - BR - Baud Rate Selector
 // access: rw, hardware: o
 //---------------------
-reg [3:0] csr_u_ctrl_br_ff;
+reg [3:0] csr_u_ctrl_br_ff = 4'hf;
 
 assign csr_u_ctrl_rdata[7:4] = csr_u_ctrl_br_ff;
 
 assign csr_u_ctrl_br_out = csr_u_ctrl_br_ff;
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_ctrl_br_ff <= 4'hf;
     end else  begin
@@ -167,13 +167,13 @@ end
 // U_CTRL[15:8] - CLK - System Clock Frequency (in MHz or other unit, implementation-defined)
 // access: rw, hardware: o
 //---------------------
-reg [7:0] csr_u_ctrl_clk_ff;
+reg [7:0] csr_u_ctrl_clk_ff = 8'h0;
 
 assign csr_u_ctrl_rdata[15:8] = csr_u_ctrl_clk_ff;
 
 assign csr_u_ctrl_clk_out = csr_u_ctrl_clk_ff;
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_ctrl_clk_ff <= 8'h0;
     end else  begin
@@ -198,8 +198,8 @@ assign csr_u_stat_rdata[31:2] = 30'h0;
 
 wire csr_u_stat_ren;
 assign csr_u_stat_ren = ren && (raddr == 32'h4);
-reg csr_u_stat_ren_ff;
-always @(posedge clk) begin
+reg csr_u_stat_ren_ff = 1'b0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_stat_ren_ff <= 1'b0;
     end else begin
@@ -211,12 +211,12 @@ end
 // U_STAT[0] - TBUSY - Transmitter Busy
 // access: ro, hardware: i
 //---------------------
-reg  csr_u_stat_tbusy_ff;
+reg  csr_u_stat_tbusy_ff = 1'b0;
 
 assign csr_u_stat_rdata[0] = csr_u_stat_tbusy_ff;
 
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_stat_tbusy_ff <= 1'b0;
     end else  begin
@@ -231,12 +231,12 @@ end
 // U_STAT[1] - RXNE - Receive Buffer Not Empty
 // access: ro, hardware: i
 //---------------------
-reg  csr_u_stat_rxne_ff;
+reg  csr_u_stat_rxne_ff = 1'b0;
 
 assign csr_u_stat_rdata[1] = csr_u_stat_rxne_ff;
 
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_stat_rxne_ff <= 1'b0;
     end else  begin
@@ -258,8 +258,8 @@ assign csr_u_txdata_wen = wen && (waddr == 32'h8);
 
 wire csr_u_txdata_ren;
 assign csr_u_txdata_ren = ren && (raddr == 32'h8);
-reg csr_u_txdata_ren_ff;
-always @(posedge clk) begin
+reg csr_u_txdata_ren_ff = 1'b0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_txdata_ren_ff <= 1'b0;
     end else begin
@@ -271,13 +271,13 @@ end
 // U_TXDATA[7:0] - DATA - Data To Transmit
 // access: rw, hardware: o
 //---------------------
-reg [7:0] csr_u_txdata_data_ff;
+reg [7:0] csr_u_txdata_data_ff = 8'h00;
 
 assign csr_u_txdata_rdata[7:0] = csr_u_txdata_data_ff;
 
 assign csr_u_txdata_data_out = csr_u_txdata_data_ff;
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_txdata_data_ff <= 8'h0;
     end else  begin
@@ -302,8 +302,8 @@ assign csr_u_rxdata_rdata[31:8] = 24'h0;
 
 wire csr_u_rxdata_ren;
 assign csr_u_rxdata_ren = ren && (raddr == 32'hc);
-reg csr_u_rxdata_ren_ff;
-always @(posedge clk) begin
+reg csr_u_rxdata_ren_ff = 1'b0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_rxdata_ren_ff <= 1'b0;
     end else begin
@@ -315,12 +315,12 @@ end
 // U_RXDATA[7:0] - DATA - Received Data
 // access: ro, hardware: i
 //---------------------
-reg [7:0] csr_u_rxdata_data_ff;
+reg [7:0] csr_u_rxdata_data_ff = 8'h00;
 
 assign csr_u_rxdata_rdata[7:0] = csr_u_rxdata_data_ff;
 
 
-always @(posedge clk) begin
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         csr_u_rxdata_data_ff <= 8'h0;
     end else  begin
@@ -338,8 +338,8 @@ assign wready = 1'b1;
 //------------------------------------------------------------------------------
 // Read address decoder
 //------------------------------------------------------------------------------
-reg [31:0] rdata_ff;
-always @(posedge clk) begin
+reg [31:0] rdata_ff = 32'h0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         rdata_ff <= 32'h0;
     end else if (ren) begin
@@ -359,8 +359,8 @@ assign rdata = rdata_ff;
 //------------------------------------------------------------------------------
 // Read data valid
 //------------------------------------------------------------------------------
-reg rvalid_ff;
-always @(posedge clk) begin
+reg rvalid_ff = 1'b0;
+always @(posedge clk or posedge rst) begin
     if (rst) begin
         rvalid_ff <= 1'b0;
     end else if (ren && rvalid) begin

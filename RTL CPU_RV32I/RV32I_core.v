@@ -9,7 +9,13 @@ module RV32I_core(
     output          peri_wen,
     output          peri_ren,
 
-    output          s3_sel_uart
+    output  [ 2:0 ] peri_burst,
+     
+    output  [ 1:0 ] peri_htrans,
+
+    input           peri_rvalid,
+    input           peri_wdone,
+    input           peri_err  
 );
 /*===========================================================================
 1. Basic Mode (No Pipeline – 5 Cycles per Instruction)
@@ -94,14 +100,6 @@ localparam  ExeAMem         =   5'b00001 <<  EM;
 localparam  WRegOMem        =   5'b00001 <<  WM;
 
 localparam  CLOCKSYS        =   27;//27Mhz
-
-
-assign      peri_addr       =   mem_addr;
-assign      peri_wdata      =   memd_sdata;
-assign      peri_wmask      =   memd_mask;
-assign      peri_wen        =   insSTORE;
-assign      peri_ren        =   memd_lready & insLOAD;
-
 
 
 
@@ -273,6 +271,7 @@ assign          wrong_predfast  =   insBRA & (flag_branch != predict_taken2) & !
 wire    [31:0 ] memins_rdata_pred;
 
 wire            isRAW_Hazardrs1_2cyc_forJALR;   //Vi JALR su du data rs1
+wire            wait_peri_as;
 
 Instruction_memory #(
 //    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
@@ -281,7 +280,7 @@ Instruction_memory #(
 ) ins_mem(
     .clk            (clksys),
 `ifdef FIVES_PIPELINE_EN
-    .l_pause        (isRAW_Hazardrs1_2cyc_forJALR),
+    .l_pause        (isRAW_Hazardrs1_2cyc_forJALR || wait_peri_as),
 `endif
 `ifdef THREE_STATE_EN
     .l_pause        (1'b0),
@@ -632,6 +631,18 @@ always @(posedge clksys) begin
 end
 
 
+assign      peri_burst      =   3'b000;
+assign      peri_htrans     =  ((peri_ren || peri_wen) && !s0_sel_mem)?2'b10:2'b00;
+assign      peri_addr       =   mem_addr;
+assign      peri_wdata      =   memd_sdata;
+assign      peri_wmask      =   memd_mask;
+assign      peri_wen        =   insSTORE && memd_senable;
+assign      peri_ren        =   memd_lready & insLOAD;
+wire        peri_trans_done =   (peri_ren && peri_rvalid) || (peri_wen && peri_wdone);
+
+
+
+
 reg     [31:0 ] PC      =   INSTR_FIRST;    //The program counter (PC) is a 32-bit register that holds the address of the current instruction being executed. 
                                             //After each instruction, the PC is typically incremented by 4 to point to the next instruction. 
 //reg     [31:0 ] PCnext  =   INSTR_FIRST;
@@ -719,15 +730,17 @@ No pileline
                 end
                 state[MEM]  : begin
                     if(insLOAD) begin
-                        memd_lready <= 1'b0;
                         load_data <= mem_ldmask;
                     end
                     else begin //insSTORE
                         memd_sdata <= data_rs2;
                         memd_senable <= 1'b1;
                     end
-                    state <= WriteBoh;
-                    
+                    if(s0_sel_mem || peri_trans_done) begin
+                        memd_lready <= 1'b0;
+                        memd_senable <= s0_sel_mem;
+                        state <= WriteBoh;
+                    end
                 end
                 state[WB]   : begin
                     memd_senable <= 1'b0;
@@ -760,9 +773,9 @@ No pileline
 /*------------------------------------------------------------------------------------------
 /*----------------------------------------------------------
 This processor is organized into three states:
-    1. FD (Fetch & Decode): Fetches the instruction, decodes it, and reads registers.
+    1. DE (Decode): Fetches the instruction, decodes it, and reads registers.
     2. EM (Execute & Memory): Executes ALU operations or accesses data memory.
-    3. WM (Write Back): Writes results back to the register file or memory.
+    3. WF (Write Back and Fetch): Writes results back to the register file or memory.
 No pipeline
 ------------------------------------------------------------
 -------------------------------------------------------------------------------------------*/
@@ -788,6 +801,12 @@ No pipeline
         else begin
             (*parallel_case*)
             case(1'b1)
+                state[FD]: begin
+                    csr_we <= 1'b0;
+                    data_valid <= 1'b0;
+                    state <= ExeAMem;
+                    csr_instret <= csr_instret + 1;
+                end
                 state[EM]: begin
                     (*parallel_case*)
                     case(1'b1)
@@ -839,26 +858,28 @@ No pipeline
                     csr_we <= 1'b0;
                     case(1'b1)
                         insLOAD: begin
-                            memd_lready <= 1'b0;
-                            data_valid <= 1'b1;
+                            if(s0_sel_mem || peri_trans_done) begin
+                                memd_lready <= 1'b0;
+                                data_valid <= 1'b1;
+                                state <= FetADec;
+                                PC <= PCnext;
+                            end
                         end
                         insSTORE: begin
 //                            memd_sdata <= data_rs2;
-                            memd_senable <= 1'b0;
+                            if(s0_sel_mem || peri_trans_done) begin
+                                memd_senable <= 1'b0;
+                                state <= FetADec;
+                                PC <= PCnext;
+                            end
                         end
-                        insALU | insLUI | insAUIPC | insJAL | insJALR: begin
+                        default: begin
                             //data_des <= result;
                             data_valid <= 1'b0;
+                            state <= FetADec;
+                            PC <= PCnext;
                         end
                     endcase 
-                    state <= FetADec;
-                    PC <= PCnext;
-                end
-                state[FD]: begin
-                    csr_we <= 1'b0;
-                    data_valid <= 1'b0;
-                    state <= ExeAMem;
-                    csr_instret <= csr_instret + 1;
                 end
             endcase   
         end
@@ -1003,6 +1024,8 @@ reg             en_rs1pred_shift1   =   VALUE_RESET;
 reg     [ 4:0 ] regrs1pred_shift1   =   5'h00;
 reg     [31:0 ] resultfast          =   VALUE_RESET32;
 
+wire            wait_peri           =   !s0_sel_mem && (!peri_trans_done) && (insLOAD || insSTORE) && PC != 32'h0 && !wrong_pred && !wrong_predshift1;
+assign          wait_peri_as        =   wait_peri;
 
 
 //Xử lý hazard nếu dữ liệu phụ thuộc không đến từ lệnh load
@@ -1061,13 +1084,15 @@ wire            predict_taken;
 wire            insBRApred; 
 reg     [31:0 ] pc_pred_in      =   VALUE_RESET32;
 reg             enUpdate        =   VALUE_RESET;
+wire    [31:0 ] Instruc_bpre    =   (enUpdate)?choose2_3:PCnext + 4;
 branch_predictor BRA_PRED(
     .clk             (clksys),
     .rst             (rst), 
     .insBRA          (insBRApred),
-    .pc_pred_in      (pc_pred_in),           //Dư đoán lệnh kế tiếp      
+    .pc_pred_in      (pc_pred_in),           //Dư đoán lệnh kế tiếp 
+    .Instruc_bpre    (Instruc_bpre),
     .update_en       (update_BHT),    
-    .actual_taken    (actual_taken),  
+    .actual_taken    (actual_taken),
     .predict_taken   (predict_taken)   //0: not take, 1: take
 );
 
@@ -1162,7 +1187,7 @@ RV32_Decoder Decoder_for_pred(
             choose1_1 <= VALUE_RESET32; choose1_2 <= VALUE_RESET32;
             choose2_1 <= VALUE_RESET32; choose2_2 <= VALUE_RESET32;
         end
-        else if(!isRAW_Hazardrs1_2cyc_forJALR) begin
+        else if(!isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin
             PC <= PCnext;   PCshift1 <= PC;
             Fetchena <= 1'b1;
             en_pause <= 1'b1;
@@ -1217,9 +1242,14 @@ RV32_Decoder Decoder_for_pred(
 
 
     //Decode
+    reg [31:0] memins_rdata_ff = VALUE_RESET32;
+    always @(posedge clk) begin
+        memins_rdata_ff <= memins_rdata;
+    end
     always @(*) begin
         instr_data = memins_rdata;
     end
+    
     always @(posedge clk) begin
         if(!rst || !IDen) begin
             funct3shift1 <= 3'h0;
@@ -1255,7 +1285,7 @@ RV32_Decoder Decoder_for_pred(
 
             holdplus_forDE <= VALUE_RESET;
         end
-        else if(!isRAW_Hazardrs1_2cyc_forJALR) begin
+        else if(!isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin
             //instr_data <= memins_rdata;
             EXen <= 1'b1;
 //            Store_datapl1 <= data_rs2;          //Lưu trễ 1 chu kì
@@ -1398,7 +1428,7 @@ RV32_Decoder Decoder_for_pred(
                                     (isRAW_Hazardrs1_2cyc_forSTORE)?((insLOADshift2)?mem_ldmaskshift1 + Immediate:result_shiftpl + Immediate)   :
                                     (isRAW_Hazardrs1_3cyc_forSTORE)?((insLOADshift3)?mem_ldmaskshift2 + Immediate:result_shiftpl1 + Immediate)  :
                                                                       data_rs1 + Immediate;
-                    memd_lready = 1'b1;
+                    memd_lready = 1'b1 && !wrong_pred;
                 end
                 insSTORE: begin
                     mem_addr =      (isRAW_Hazardrs1_1cyc_forSTORE)?((insLOADshift1)?mem_ldmask + Immediate:result + Immediate)                 :    //Xư lý cả hazard của store nếu trước đó là lệnh load
@@ -1409,7 +1439,7 @@ RV32_Decoder Decoder_for_pred(
                                     (isRAW_Hazardrs2_2cyc_forSTORE)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)   :
                                     (isRAW_Hazardrs2_3cyc_forSTORE)?((insLOADshift3)?mem_ldmaskshift2:result_shiftpl1)  :
                                                                       data_rs2;
-                    memd_senable = 1'b1;
+                    memd_senable = 1'b1 && !wrong_pred;
                 end
                 default: begin
                     memd_lready = 1'b0;
@@ -1469,7 +1499,7 @@ RV32_Decoder Decoder_for_pred(
 //            result_shiftpl1 <= VALUE_RESET32;
             holdplus_forEX <= VALUE_RESET;
         end
-        else if(!isRAW_Hazardrs1_2cyc_forJALR) begin
+        else if(!isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin
             wrong_pred <= wrong_predfast; enUpdate <= 1'b0;
 //            memd_lready <= 1'b0;
 //            memd_senable <= 1'b0;
@@ -1550,7 +1580,7 @@ RV32_Decoder Decoder_for_pred(
 //            mem_ldmaskshift2 <= VALUE_RESET32;
 //            memd_sdata <= VALUE_RESET32;
         end
-        else if(!isRAW_Hazardrs1_2cyc_forJALR) begin                
+        else if(!isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin                
             mem_ldmaskshift1 <= mem_ldmask;
             mem_ldmaskshift2 <= mem_ldmaskshift1;
 
@@ -1585,7 +1615,7 @@ RV32_Decoder Decoder_for_pred(
             regrd_shiftpl <= 5'h00;
             data_valid <= VALUE_RESET;
         end
-        else if(MEMen || !isRAW_Hazardrs1_2cyc_forJALR) begin
+        else if(MEMen || !isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin
             case(1'b1)
                 insLOADshift2: begin
                     data_des <= (en_pauseshift1)?mem_ldmaskshift1:mem_ldmaskshift2;

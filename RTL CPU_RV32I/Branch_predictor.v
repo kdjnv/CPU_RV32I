@@ -9,7 +9,8 @@ module branch_predictor (
     input           clk,
     input           rst,    
     input           insBRA,
-    input  [31:0]   pc_pred_in,         
+    input  [31:0]   pc_pred_in,
+    input  [31:0]   Instruc_bpre,
     input           update_en,    
     input           actual_taken,  
     output          predict_taken   //0: not take, 1: take
@@ -24,17 +25,15 @@ module branch_predictor (
     end
 
     wire [7:0] index = pc_pred_in[9:2]; // Chọn index từ PC; 8 bit -> 255 trường hợp
-
+    wire [7:0] r_index = Instruc_bpre[9:2];
+    reg [1:0] bht_data;
     // Đọc dự đoán
-    assign predict_taken = (insBRA)?BHT[index][1]:1'b1;
+    assign predict_taken = (insBRA)?bht_data[1]:1'b1;
 
     // Cập nhật theo kết quả thật
     
     always @(posedge clk) begin
-        if (!rst) begin
-            for (i = 0; i < 256; i = i + 1) BHT[i] <= 2'b01;
-        end 
-        else if (update_en) begin
+        if (update_en) begin
             case ({actual_taken, BHT[index]})
                 3'b0_00: BHT[index] <= 2'b00; // Giữ SN
                 3'b0_01: BHT[index] <= 2'b00; // WN -> SN
@@ -46,6 +45,11 @@ module branch_predictor (
                 3'b1_11: BHT[index] <= 2'b11; // Giữ ST
             endcase
         end
+    end
+
+    
+    always @(posedge clk) begin
+        bht_data <= BHT[r_index];
     end
 
 endmodule
