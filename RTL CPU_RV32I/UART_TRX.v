@@ -45,6 +45,9 @@ module UART
 	input       i_RX,
 	output      o_TX,
 
+    output reg  irqs1_rxuart,               //Ngắt khi nhận đc kí tự
+    output reg  irqs2_txuart,               //Ngắt khi gửi xong kí tự
+
     output      o_busy_tx,                  //Cờ báo hiệu ngoại vi UART đang bận truyền
     output      o_RXNE,                     //Cờ báo hiệu ngoại vi UART nhận được đủ 8bit từ bên truyền
     output [7:0]o_data_rx                   //Bit_f chứa dữ liệu 8 bit nhận được từ bên truyền
@@ -85,17 +88,38 @@ wire [31:0] BAUDR;
     reg [7:0] ascii_data = 8'h00;
 
 
+//Đồng bộ tín hiệu
+    reg i_RX_ff = 1;
+    reg r_RX    = 1;
+    always @(posedge i_clk) begin
+        if(!i_rst || !i_en) begin
+            i_RX_ff <= 1'b1;
+        end else begin
+            i_RX_ff <= i_RX;
+        end
+    end
+    always @(posedge i_clk) begin
+        if(!i_rst || !i_en) begin
+            r_RX <= 1'b1;
+        end else begin
+            r_RX <= i_RX_ff;
+        end
+    end
+
+
     always @(posedge i_clk) begin
         if (!i_rst || !i_en) begin
             RX_state <= 0;
             r_RX_counter <= 0;
             bit_idx <= 0;
             r_RX_ready <= 0;
+            irqs1_rxuart <= 1'b0;
         end else begin
             case (RX_state)
                 0: begin // Wait for start bit
                     r_RX_ready <= 0;
-                    if (!i_RX) begin
+                    irqs1_rxuart <= 1'b0;
+                    if (!r_RX) begin
                         r_RX_counter <= BAND_CNT >> 1;
                         RX_state <= 1;
                     end
@@ -110,7 +134,7 @@ wire [31:0] BAUDR;
                 end
                 2: begin // Receive 8 bits
                     if (r_RX_counter == 0) begin
-                        rx_shift[bit_idx] <= i_RX;
+                        rx_shift[bit_idx] <= r_RX;
                         if (bit_idx == 7) begin
                             RX_state <= 3;
                         end else
@@ -129,7 +153,8 @@ wire [31:0] BAUDR;
                 end
                 4: begin
                     r_RX_ready <= 1;
-                    RX_state <= 0;
+                    irqs1_rxuart <= 1'b1;
+                    if (r_RX) RX_state <= 0;
                 end
             endcase
         end
@@ -150,6 +175,8 @@ wire [31:0] BAUDR;
     reg r_busy_tx = 1'b0;
     reg r_busy_txfast = 1'b0;
     reg r_busy_txnot = 1'b0;
+    reg mask =1'b0; 
+
 
     assign o_busy_tx = r_busy_txfast || r_busy_tx;
     always @(*) begin
@@ -178,14 +205,18 @@ wire [31:0] BAUDR;
 			TX_state <= TX_IDLE;
             r_busy_tx <= 0;
             r_busy_txnot <= 0;
+            mask <= 1'b0;
 		end
 		else begin
+            irqs2_txuart <= 1'b0;
 			case (TX_state)
 				TX_IDLE : begin
+                    mask <= 1'b0;
                     r_busy_tx <= 0;
                     if (i_str_tx) begin
                         r_TX <= 0;
                         r_busy_tx <= 1;
+                        r_TX_counter <= 1;
                         TX_state <= TX_START;
                     end
 				end
@@ -214,7 +245,7 @@ wire [31:0] BAUDR;
 
 				TX_STOP : begin
 					r_TX <= 1;
-					if (r_TX_counter == BAND_CNT) begin
+					if (r_TX_counter == 10*BAND_CNT) begin
 						r_TX_counter <= 1;
 						TX_state <= TX_DONE;
 					end
@@ -224,6 +255,9 @@ wire [31:0] BAUDR;
 				TX_DONE : begin
                     r_busy_tx <= 0;
                     r_busy_txnot <= 1'b1;
+                    mask <= 1'b1;
+                    if(!mask) irqs2_txuart <= 1'b1;
+                    
 					if (!i_str_tx) begin
                         r_busy_txnot <= 1'b0;
                         TX_state <= TX_IDLE;

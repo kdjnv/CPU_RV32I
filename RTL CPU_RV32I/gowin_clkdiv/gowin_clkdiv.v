@@ -5,7 +5,7 @@
 //Part Number: GW1NR-LV9QN88PC6/I5
 //Device: GW1NR-9
 //Device Version: C
-//Created Time: Tue Aug 26 18:33:00 2025
+//Created Time: Mon Sep  8 08:56:17 2025
 
 module Gowin_CLKDIV (clkout, hclkin, resetn);
 

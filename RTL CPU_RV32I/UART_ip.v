@@ -25,6 +25,9 @@ module uart_ip #(
     output          PREADY,
     output          PSLVERR,
 
+    output          irqs1_rxuart,
+    output          irqs2_txuart,
+
     // UART TX RX
     output          o_uart_tx,
     input           i_uart_rx
@@ -100,6 +103,9 @@ module uart_ip #(
         // RX không dùng
         .i_RX       (i_uart_rx),
         .o_TX       (o_uart_tx),
+
+        .irqs1_rxuart(irqs1_rxuart),
+        .irqs2_txuart(irqs2_txuart),
 
         .o_busy_tx  (uart_busy),
         .o_RXNE     (uart_rxne),

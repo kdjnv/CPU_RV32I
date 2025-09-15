@@ -74,7 +74,8 @@ module RV32_Decoder(
 //decode CSR
     output  [ 3:0]  pred,
     output  [ 3:0]  succ,
-    output  [11:0]  csr_addr
+    output  [11:0]  csr_addr,
+    output          insMRET         //Lệnh đặc biệt, sử dụng cho ngắt
 );
 
 /*
@@ -145,5 +146,7 @@ assign  en_rd   =   (!insBRA)&(!insSTORE)&(!insFENCE)&(!(insSYS&funct3oh[0]));
 assign  en_rs1  =   ((!insAUIPC)&(!insLUI)&(!insJAL)&(!insFENCE))|(insSYS&(funct3oh[1]|funct3oh[2]|funct3oh[3]));
 assign  en_rs2  =   insALUReg|insSTORE|insBRA;
 
+//MRET: sử dụng cho ngắt. Muốn quay về PC sau khi đã ngắt xong
+assign insMRET  =   instr_data == 32'h30200073;
 
 endmodule

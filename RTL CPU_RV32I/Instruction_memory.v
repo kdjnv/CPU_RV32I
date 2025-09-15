@@ -7,8 +7,9 @@ module Instruction_memory #(parameter MEM_FILE = "",
     input   [31:0]  mem_addr,   //address for read or write
     input   [31:0]  mem_addrpred,
     output  [31:0]  mem_rdata,  //read data  
-    output  [31:0]  mem_rdata_pred,  
-    input   	    mem_renable //high when CPU wants to read data
+    output reg  [31:0]  mem_rdata_pred,  
+    input   	    mem_renable, //high when CPU wants to read data
+    input           mem_renablepred
 
 );
 `define ENABLE_READ_INSTR_MEM;
@@ -26,13 +27,15 @@ module Instruction_memory #(parameter MEM_FILE = "",
 //read instr
     reg     [31: 0] rdata;  assign mem_rdata = rdata;
 `ifdef PREDICT_EN
-    reg     [31: 0] rdata_pred;  assign mem_rdata_pred = MEM[mem_addrpred[31:2]];   
+    reg     [31: 0] rdata_pred = 32'h0000007F;  //assign mem_rdata_pred =MEM[mem_addrpred[31:2]];  
 `endif 
 `ifdef ENABLE_READ_INSTR_MEM
     always @(posedge clk) begin
         if(mem_renable && !l_pause) begin
             rdata <= MEM[addr_word]; 
-            //rdata_pred <= MEM[mem_addrpred[31:2]+1];
+        end 
+        if(mem_renablepred) begin
+            mem_rdata_pred <= MEM[mem_addrpred[31:2]];
         end
     end
 

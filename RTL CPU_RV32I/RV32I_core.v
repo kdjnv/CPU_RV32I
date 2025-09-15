@@ -15,7 +15,12 @@ module RV32I_core(
 
     input           peri_rvalid,
     input           peri_wdone,
-    input           peri_err  
+    input           peri_err,
+
+    input           irq_flag,
+    input           irq_external_pending,
+    output          trap_en
+//    input   [ 5:0 ] irq_claim_id
 );
 /*===========================================================================
 1. Basic Mode (No Pipeline – 5 Cycles per Instruction)
@@ -104,9 +109,11 @@ localparam  CLOCKSYS        =   27;//27Mhz
 
 
 wire    [31:0 ] memd_ldata, memins_rdata;
+reg     [31:0 ] mem_addr;
+wire    [31:0 ] memins_addr;
 
 reg     [31:0 ] processor_data;
-wire            s0_sel_mem;
+wire            s0_sel_mem = (mem_addr[31:28] == 4'h2);
 wire clksys;
 
 `ifdef FIVE_STATE_EN
@@ -171,21 +178,6 @@ wire clksys;
 
 
 /*-------------------------------------------------
-The device_select module decodes the upper 4 bits of a 32-bit address to generate select signals for different peripherals in an RV32I-based system. 
-Each peripheral (memory/*, GPIO, I2C, UART, PWM, timer, SPI ...//) is mapped to a unique address region. 
-When the address matches a region, the corresponding select signal is asserted high.
---------------------------------------------------*/
-reg     [31:0 ] mem_addr;
-wire    [31:0 ] memins_addr;
-Device_select DS(
-    .addr(mem_addr),
-    .s0_sel_mem(s0_sel_mem),
-    .s3_sel_uart(s3_sel_uart)
-);
-
-
-
-/*-------------------------------------------------
 This module decodes 32-bit RV32I instructions by extracting fields such as opcode, rd, rs1, rs2, funct3, funct7, and immediate values. 
 It identifies the instruction format (R, I, S, B, U, J) and generates control signals for execution units.
 -------------------------------------------------*/
@@ -207,6 +199,7 @@ wire            en_rd;
 wire    [ 3:0 ] pred;
 wire    [ 3:0 ] succ;
 wire    [11:0 ] csr_addr;
+wire            insMRET;
 
 
 RV32_Decoder Maindecoder(
@@ -234,7 +227,8 @@ RV32_Decoder Maindecoder(
     .en_rd              (en_rd),
     .pred               (pred),
     .succ               (succ),
-    .csr_addr           (csr_addr)
+    .csr_addr           (csr_addr),
+    .insMRET            (insMRET)
 );
 
 
@@ -263,7 +257,7 @@ reg             predict_taken2  =   VALUE_RESET;
 
 reg     [31:0 ] PCnext          =   INSTR_FIRST;
 reg     [31:0 ] PCnext_fast     =   INSTR_FIRST;
-reg     [31:0 ] PCnext_pred     =   INSTR_FIRST;
+reg     [31:0 ] PCnext_actual     =   INSTR_FIRST;
 reg             wrong_pred      =   VALUE_RESET;
 reg             wrong_predshift1;
 wire            wrong_predfast; 
@@ -272,6 +266,7 @@ wire    [31:0 ] memins_rdata_pred;
 
 wire            isRAW_Hazardrs1_2cyc_forJALR;   //Vi JALR su du data rs1
 wire            wait_peri_as;
+wire            mem_renablepred;
 
 Instruction_memory #(
 //    .MEM_FILE   ("C:/Users/PHONG/OneDrive - ptit.edu.vn/Desktop/FW RV32I/firmware/firmware.hex"),
@@ -289,16 +284,15 @@ Instruction_memory #(
     .l_pause        (1'b0),
 `endif
     .mem_addr       (memins_addr),
-    .mem_addrpred   (PCnext),
+    .mem_addrpred   (PCnext_fast),
     .mem_rdata      (memins_rdata),
     .mem_rdata_pred (memins_rdata_pred),
-    .mem_renable    (memins_read)
+    .mem_renable    (memins_read),
+    .mem_renablepred(mem_renablepred)
 );
 
 wire    [ 3:0 ] memd_maskfn_mem;
 wire            memd_lenfn_mem;
-wire    [ 3:0 ] memd_maskfn_uart;
-wire            memd_lenfn_uart;
 `ifdef THREE_STATE_EN
     assign memd_maskfn_mem  =   memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & {4{insSTORE}};
     assign memd_lenfn_mem   =   memd_lready & insLOAD;
@@ -314,10 +308,7 @@ reg insSTOREshift2;
 reg insLOADshift2;
 reg insLOADshift3;
     assign memd_maskfn_mem  =   memd_mask & {4{memd_senable}} & {4{s0_sel_mem}} & {4{insSTORE}};
-    assign memd_lenfn_mem   =   memd_lready & insLOAD;
-
-    assign memd_maskfn_uart =   memd_mask & {4{memd_senable}} & {4{s3_sel_uart}} & {4{insSTORE}};
-    assign memd_lenfn_uart  =   memd_lready & insLOAD;
+    assign memd_lenfn_mem   =   memd_lready & insLOAD & s0_sel_mem;
 `endif
 
 Data_memory #(
@@ -596,8 +587,16 @@ every clock cycle, allows CSR read/write through addresses, and automatically up
 --------------------------------------------------------------------*/
 reg     [11:0 ] csr_addrpl;
 reg     [63:0 ] csr_instret =   64'b0;
-reg     [63:0 ] real_mtime  =   64'b0;
+reg     [63:0 ] csr_real_mtime  =   64'b0;
 reg     [ 7:0 ] cnt         =   8'b1;
+
+reg             csr_trap_taken  = 1'b0;
+reg     [31:0 ] csr_trap_pc     = 32'd0;
+wire    [31:0 ] csr_trap_rpc;
+wire    [31:0 ] csr_trap_addr;
+reg     [31:0 ] csr_trap_cause  = 32'd0;
+reg             UpdateMEPC      = 1'b0;
+
 CSR_unit CSRreg(
     .clk            (clksys), 
     .rst            (rst),
@@ -612,20 +611,35 @@ CSR_unit CSRreg(
     .csr_we         (csr_we),
     .csr_rdata      (csr_rdata),
     .csr_instret    (csr_instret),
-    .real_mtime     (real_mtime)    //tick
+    .real_mtime     (csr_real_mtime),    //tick
+
+    .trap_taken     (csr_trap_taken),
+    .trap_complete  (insMRET),
+    .updateMEPC     (UpdateMEPC),
+    .trap_pc        (csr_trap_pc),
+    .trap_rpc       (csr_trap_rpc),
+    .trap_addr      (csr_trap_addr),
+    .trap_cause     (csr_trap_cause),
+    
+    .irq_software   (1'b0),
+    .irq_timer      (1'b0),
+    .irq_external   (irq_external_pending),
+    .global_ie      (irq_en)
+    
 );
+assign trap_en = irq_en;
 
 //Count time (1tick = 1us)
 always @(posedge clksys) begin
     if(!rst) begin
         cnt <= 1;
-        real_mtime <= 64'b0;
+        csr_real_mtime <= 64'b0;
     end
     else begin
         cnt <= cnt + 1;
         if(cnt == CLOCKSYS) begin
             cnt <= 1;
-            real_mtime <= real_mtime + 1;
+            csr_real_mtime <= csr_real_mtime + 1;
         end
     end
 end
@@ -665,6 +679,36 @@ No pileline
 `ifdef FIVE_STATE_EN
     assign memins_read = state[IF]; //only Instruction Fetch
     assign memins_addr = PC;
+
+//Bật cờ ngắt
+reg irq_flagh = 0;
+reg irq_active = 0;
+    always @(posedge clksys) begin
+        if(!rst) begin
+            irq_flagh <= 1'b0;
+        end
+        else begin
+            if(irq_flag) irq_flagh <= 1'b1;
+            if(irq_active) irq_flagh <= 1'b0;
+        end
+    end
+
+//Tính địa chỉ trở lại với ngắt
+reg [31:0 ] PCreturnIRQ;
+    always @(*) begin
+        if(!rst) begin
+            PCreturnIRQ = INSTR_FIRST;
+        end
+        else begin
+            (*parallel_case*)
+            case(1'b1)
+                insBRA:     PCreturnIRQ = flag_branch ? PC + Immediate : PC+4;
+                insJAL:     PCreturnIRQ = PC + Immediate;
+                insJALR:    PCreturnIRQ = (data_rs1 + Immediate) & ~32'h1;
+                default:    PCreturnIRQ = PC + 4;
+            endcase
+        end
+    end
 
     always @(posedge clksys) begin
         if(!rst) begin
@@ -725,8 +769,23 @@ No pileline
                         end
                         default: state <= Fetchoh;
                     endcase
+
                     state <= (insLOAD || insSTORE) ? MemoryAoh : WriteBoh;
                     if (!(insBRA||insJAL||insJALR)) PCnext <= PC + 4;
+
+                    csr_trap_taken <= 1'b0;
+                    irq_active <= 1'b0;
+                    if(irq_flagh) begin
+                        irq_active <= 1'b1;
+                        PCnext <= csr_trap_addr; 
+                        csr_trap_taken <= 1'b1;
+                        csr_trap_pc <= PCreturnIRQ;
+                        csr_trap_cause <= 32'h8000000B;
+                    end
+                    if(insMRET) begin
+                        PCnext <= csr_trap_rpc;
+                    end
+                    
                 end
                 state[MEM]  : begin
                     if(insLOAD) begin
@@ -782,6 +841,36 @@ No pipeline
 `ifdef THREE_STATE_EN
     assign memins_read = 1'b1; //always read
     assign memins_addr = PC;
+
+//Bật cờ ngắt
+reg irq_flagh = 0;
+reg irq_active = 0;
+    always @(posedge clksys) begin
+        if(!rst) begin
+            irq_flagh <= 1'b0;
+        end
+        else begin
+            if(irq_flag) irq_flagh <= 1'b1;
+            if(irq_active) irq_flagh <= 1'b0;
+        end
+    end
+
+//Tính địa chỉ trở lại với ngắt
+reg [31:0 ] PCreturnIRQ;
+    always @(*) begin
+        if(!rst) begin
+            PCreturnIRQ = INSTR_FIRST;
+        end
+        else begin
+            (*parallel_case*)
+            case(1'b1)
+                insBRA:     PCreturnIRQ = flag_branch ? PC + Immediate : PC+4;
+                insJAL:     PCreturnIRQ = PC + Immediate;
+                insJALR:    PCreturnIRQ = (data_rs1 + Immediate) & ~32'h1;
+                default:    PCreturnIRQ = PC + 4;
+            endcase
+        end
+    end
 
     always @(*) begin
         instr_data = memins_rdata;
@@ -852,6 +941,20 @@ No pipeline
                         end
                     endcase    
                     if (!(insBRA||insJAL||insJALR)) PCnext <= PC + 4;
+
+                    csr_trap_taken <= 1'b0;
+                    irq_active <= 1'b0;
+                    if(irq_flagh) begin
+                        irq_active <= 1'b1;
+                        PCnext <= csr_trap_addr; 
+                        csr_trap_taken <= 1'b1;
+                        csr_trap_pc <= PCreturnIRQ;
+                        csr_trap_cause <= 32'h8000000B;
+                    end
+                    if(insMRET) begin
+                        PCnext <= csr_trap_rpc;
+                    end
+
                     state <= WRegOMem;
                 end
                 state[WM]: begin
@@ -946,7 +1049,6 @@ reg     [31:0 ] Store_datapl2   =   VALUE_RESET32;
 reg     [31:0 ] mem_addrup      =   VALUE_RESET32;  //địa chỉ tới trước 1 chu kì cho memory access
 reg     [31:0 ] result_shiftpl  =   VALUE_RESET32;
 reg     [31:0 ] result_shiftpl1 =   VALUE_RESET32;
-reg     [31:0 ] return_addrpred =   VALUE_RESET32;
 
 reg     [31:0 ] dwb_csr         =   VALUE_RESET32;
 reg     [31:0 ] dwb_csr_shiftpl =   VALUE_RESET32;
@@ -1025,8 +1127,21 @@ reg     [ 4:0 ] regrs1pred_shift1   =   5'h00;
 reg     [31:0 ] resultfast          =   VALUE_RESET32;
 
 wire            wait_peri           =   !s0_sel_mem && (!peri_trans_done) && (insLOAD || insSTORE) && PC != 32'h0 && !wrong_pred && !wrong_predshift1;
-assign          wait_peri_as        =   wait_peri;
+reg             IRQ_UpdatePC        =   VALUE_RESET;    //Cờ báo hiệu chuẩn bị Update PC do trap xảy ra
+                                                        //Sử dụng để tránh trường hợp vừa ngắt xong thì phát hiện rẽ nhánh sai lại nhảy ra khỏi ngắt
+reg             IRQ_UpdatePCshift1  =   VALUE_RESET;
+reg             IRQ_UpdatePCshift2  =   VALUE_RESET;
+reg     [31:0 ] PCnext_actual_shift1=   VALUE_RESET32;
+reg     [31:0 ] PCnext_returnIRQ    =   VALUE_RESET32;
+reg             mem_renablepredff   =   VALUE_RESET;
 
+
+assign          wait_peri_as        =   wait_peri;
+assign          mem_renablepred =   mem_renablepredff;
+always @(*) begin
+    if(!rst) mem_renablepredff <= 1'b1;
+    else mem_renablepredff = !isRAW_Hazardrs1_2cyc_forJALR && !wait_peri;
+end
 
 //Xử lý hazard nếu dữ liệu phụ thuộc không đến từ lệnh load
     assign isRAW_Hazardrs1_1cyc_forWB   =   (en_rdhz1&&en_rs1)? (regrs1 == regrd_shifthz1)  &&
@@ -1100,6 +1215,7 @@ branch_predictor BRA_PRED(
 Decoder for predictor
 -------------*/
 wire            insJALpred;
+wire            insMRETpred;
 //wire            insJALRpred;
 wire    [ 4:0 ] regrdpred;
 wire    [31:0 ] Immediatepred;
@@ -1109,6 +1225,7 @@ RV32_Decoder Decoder_for_pred(
     .insJAL             (insJALpred),
     .insJALR            (insJALRpred),
     .insBRA             (insBRApred),
+    .insMRET            (insMRETpred),
     .regrs1             (regrs1pred),
     .en_rs1             (en_rs1pred)
     //.regrd              (regrdpred)
@@ -1134,36 +1251,66 @@ RV32_Decoder Decoder_for_pred(
     4. MEM (Memory Access): Accesses data memory for load/store instructions.
     5. WB (Write Back): Writes results back to the register file.
 ----------------------------------------------------------*/
-    //Fetch
+//----------------------------FETCH---------------------------//
+
+//Bật cờ ngắt
+reg irq_flagh = 0;
+reg irq_active = 0;
+    always @(posedge clksys) begin
+        if(!rst) begin
+            irq_flagh <= 1'b0;
+        end
+        else begin
+            if(irq_flag) irq_flagh <= 1'b1;
+            if(irq_active) irq_flagh <= 1'b0;
+        end
+    end
+
+    always @(*) begin
+        if(!rst) begin
+            PCnext_returnIRQ = INSTR_FIRST + 4;
+        end
+        else begin
+            PCnext_returnIRQ = PCnext + 4;
+            (*parallel_case*)
+            case(1'b1) 
+                insJALpred: begin
+                    PCnext_returnIRQ = PCnext + Immediatepred;
+
+                end
+                insJALRpred: begin
+                    PCnext_returnIRQ = (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       :
+                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
+                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
+                               data_rs1pred) + Immediatepred) & ~32'h1;
+
+                end
+                insBRApred: begin
+                    PCnext_returnIRQ = (predict_taken)?PCnext + Immediatepred:PCnext+4;
+                end
+            endcase
+            if(wrong_predfast) begin
+                PCnext_returnIRQ = PCnext_actual;
+            end
+        end
+    end
     
-//    always @(*) begin
-//        if(!rst) begin
-//            PCnext_fast = INSTR_FIRST + 4;
-//        end
-//        else begin
-//            PCnext_fast = PCnext + 4;
-//            (*parallel_case*)
-//            case(1'b1) 
-//                insJALpred: begin
-//                    PCnext_fast = PCnext + Immediatepred;
+    always @(*) begin
+        if(!rst) begin
+            PCnext_fast = INSTR_FIRST + 4;
+        end
+        else begin
+            PCnext_fast = PCnext_returnIRQ;
 
-//                end
-//                insJALRpred: begin
-//                    PCnext_fast = (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       :
-//                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
-//                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
-//                               data_rs1pred) + Immediatepred) & ~32'h1;
+            if(wrong_predfast) begin
+                if (!IRQ_UpdatePC) PCnext_fast = PCnext_actual;
+            end
 
-//                end
-//                insBRApred: begin
-//                    PCnext_fast = (predict_taken)?PCnext + Immediatepred:PCnext+4;
-//                end
-//            endcase
-//            if(wrong_predfast) begin
-//                PCnext_fast = PCnext_pred;
-//            end
-//        end
-//    end
+            if(irq_flagh && !irq_active && !insBRApred) PCnext_fast = csr_trap_addr; 
+
+            if(insMRETpred) PCnext_fast = csr_trap_rpc;
+        end
+    end
     
     assign memins_addr = PC;
     assign memins_read = 1'b1;          //Luôn đọc
@@ -1172,7 +1319,8 @@ RV32_Decoder Decoder_for_pred(
             PC <= INSTR_FIRST;
             PCnext <= INSTR_FIRST;
             PCshift1 <= INSTR_FIRST;
-            PCnext_pred <= INSTR_FIRST;
+            PCnext_actual <= INSTR_FIRST;
+            PCnext_actual_shift1 <= INSTR_FIRST;
             Fetchena <= VALUE_RESET;
             pc_pred_in <= VALUE_RESET32;
             IDen <= VALUE_RESET;
@@ -1183,6 +1331,8 @@ RV32_Decoder Decoder_for_pred(
             predict_taken3 <= VALUE_RESET;
             en_pause <= 1'b1;
             en_pauseshift1 <= 1'b1;
+            IRQ_UpdatePC <= VALUE_RESET;
+            UpdateMEPC <= VALUE_RESET;
             
             choose1_1 <= VALUE_RESET32; choose1_2 <= VALUE_RESET32;
             choose2_1 <= VALUE_RESET32; choose2_2 <= VALUE_RESET32;
@@ -1192,31 +1342,61 @@ RV32_Decoder Decoder_for_pred(
             Fetchena <= 1'b1;
             en_pause <= 1'b1;
             en_pauseshift1 <= en_pause;
-            PCnext <= PCnext + 4;
-            PCnext_pred <= (predict_taken1)?choose2_1+4:choose1_1;
+            PCnext <= PCnext_fast;
+            PCnext_actual <= (predict_taken1)?choose2_1+4:choose1_1;
+            PCnext_actual_shift1 <= PCnext_actual;
             pc_pred_in <= PCnext + 4;
             update_BHT <= 1'b0;
 
-            (*parallel_case*)
-            case(1'b1) 
-                insJALpred: begin
-                    PCnext <= PCnext + Immediatepred;
-                    //return_addrpred <= PC + 4;
-                end
-                insJALRpred: begin
-                    PCnext <= (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       :
-                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
-                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
-                               data_rs1pred) + Immediatepred) & ~32'h1;
-                    //return_addrpred <= PC + 4;
-                end
-                insBRApred: begin
-                    PCnext <= (predict_taken)?PCnext + Immediatepred:PCnext+4;
-                end
-            endcase 
+//            (*parallel_case*)
+//            case(1'b1) 
+//                insJALpred: begin
+//                    PCnext <= PCnext + Immediatepred;
+//                end
+//                insJALRpred: begin
+//                    PCnext <= (((!en_pause)?((insLOAD)?mem_ldmask:result)                                       ://isRAW_Hazardrs1_2cyc_forJALR
+//                              (isRAW_Hazardrs1_3cyc_forJALR)?((insLOADshift1)?mem_ldmask:result)                :
+//                              (isRAW_Hazardrs1_4cyc_forJALR)?((insLOADshift2)?mem_ldmaskshift1:result_shiftpl)  :
+//                               data_rs1pred) + Immediatepred) & ~32'h1;
+//                end
+//                insBRApred: begin
+//                    PCnext <= (predict_taken)?PCnext + Immediatepred:PCnext+4;
+//                end
+//            endcase 
 
-            if(wrong_predfast) begin
-                PCnext <= PCnext_pred;
+            UpdateMEPC <= 1'b0;
+//            if(wrong_predfast) begin
+//                if (!IRQ_UpdatePC) PCnext <= PCnext_actual;
+//            end
+
+            if(IRQ_UpdatePC) begin        //Update lại mepc chính xác do rẽ nhánh sai.
+                if(wrong_predfast) begin
+                    csr_trap_pc <= PCnext_actual;
+                    UpdateMEPC  <= 1'b1;
+                end
+                if(wrong_pred) begin
+                    UpdateMEPC  <= 1'b1;
+                    csr_trap_pc <= PCnext_actual_shift1;
+                end
+            end
+
+            //Trap handler
+            csr_trap_taken <= 1'b0;
+            IRQ_UpdatePC <= 1'b0;
+            IRQ_UpdatePCshift1 <= IRQ_UpdatePC;
+            IRQ_UpdatePCshift2 <= IRQ_UpdatePCshift1;
+            if(irq_flagh && !irq_active && !insBRApred) begin //Nếu lệnh PCnext trước đó là branch sẽ không ngắt
+                irq_active <= 1'b1;
+//                PCnext <= csr_trap_addr; 
+                csr_trap_taken <= 1'b1;
+                csr_trap_pc <= PCnext_returnIRQ;
+                csr_trap_cause <= 32'h8000000B;
+
+                IRQ_UpdatePC <= 1'b1;
+            end
+            if(insMRETpred) begin
+//                PCnext <= csr_trap_rpc;
+                irq_active <= 1'b0;
             end
 
             if(enUpdate) begin
@@ -1227,7 +1407,7 @@ RV32_Decoder Decoder_for_pred(
             end
 
             choose1_1 <= PCnext + Immediatepred;    choose1_2 <= choose1_1; choose1_3 <= choose1_2;
-            choose2_1 <= PCnext;                choose2_2 <= choose2_1; choose2_3 <= choose2_2;
+            choose2_1 <= PCnext;                    choose2_2 <= choose2_1; choose2_3 <= choose2_2;
 
             IDen <= 1'b1;
             predict_taken1 <= predict_taken;    
@@ -1235,13 +1415,13 @@ RV32_Decoder Decoder_for_pred(
             predict_taken3 <= predict_taken2;
         end
         else begin
-            en_pause <= 1'b0;
+            if (isRAW_Hazardrs1_2cyc_forJALR) en_pause <= 1'b0;
             en_pauseshift1 <= en_pause;
         end
     end
 
 
-    //Decode
+//----------------------------DECODE---------------------------//
     reg [31:0] memins_rdata_ff = VALUE_RESET32;
     always @(posedge clk) begin
         memins_rdata_ff <= memins_rdata;
@@ -1340,7 +1520,7 @@ RV32_Decoder Decoder_for_pred(
             insLOADshift3    <= insLOADshift2;
 
             holdplus_forDE <= 1'b0;
-            if(wrong_pred || holdplus_forDE) begin  //Nếu phát hiện dự đoán sai -> không lưu các thanh ghi 2 lệnh kế tiếp tính từ branch.
+            if(wrong_pred || (holdplus_forDE&&!IRQ_UpdatePCshift2)) begin  //Nếu phát hiện dự đoán sai -> không lưu các thanh ghi 2 lệnh kế tiếp tính từ branch.
                 regrd_shifthz1 <= regrd_shifthz1;
                 regrd_shifthz2 <= regrd_shifthz2;
                 regrd_shifthz3 <= regrd_shifthz3;
@@ -1401,14 +1581,14 @@ RV32_Decoder Decoder_for_pred(
 //            isRAW_Hazardrs1_2cyc_forWB <= (en_rdhz2&&en_rs1)?(regrs1 == regrd_shifthz2):1'b0;
 //            isRAW_Hazardrs2_2cyc_forWB <= (en_rdhz2&&en_rs2)?(regrs2 == regrd_shifthz2):1'b0;
 
-            if(wrong_pred) begin
+            if(wrong_pred && !IRQ_UpdatePCshift1) begin
                 EXen <= 1'b0;                                       //Lập lại pipeline, xóa kết quả cũ
             end
         end
     end
 
 
-    //Execute
+//----------------------------EXECUTE---------------------------//
     always @(*) begin//-> giúp load và store sớm hơn 1 chu kì
         if(!rst || !EXen) begin
             mem_addr = VALUE_RESET32;
@@ -1557,7 +1737,7 @@ RV32_Decoder Decoder_for_pred(
             dwb_csr_shiftpl1 <= dwb_csr_shiftpl;
 
             holdplus_forEX <= 1'b0;
-            if(wrong_pred || holdplus_forEX) begin  //Nếu phát hiện dự đoán sai -> dữ lại kết quả cũ 2 chu kì nữa
+            if((wrong_pred || (holdplus_forEX&&!IRQ_UpdatePCshift2))) begin  //Nếu phát hiện dự đoán sai -> dữ lại kết quả cũ 2 chu kì nữa
                 result_shiftpl <= result_shiftpl;
                 result_shiftpl1 <= result_shiftpl1;
 
@@ -1567,11 +1747,14 @@ RV32_Decoder Decoder_for_pred(
             end 
 
             MEMen <= 1'b1;
+            if(wrong_pred && IRQ_UpdatePCshift1) begin
+                MEMen <= 1'b0;
+            end
         end
     end
 
 
-    //Memory access
+//----------------------------MEMORY ACCESS---------------------------//
     always @(posedge clksys or negedge MEMen) begin
         if(!rst || !MEMen) begin
             WBen <= VALUE_RESET;
@@ -1585,10 +1768,12 @@ RV32_Decoder Decoder_for_pred(
             mem_ldmaskshift2 <= mem_ldmaskshift1;
 
             holdplus_forMEM <= 1'b0;
+            csr_instret <= csr_instret + 1;
             if(wrong_pred || holdplus_forMEM) begin  //Nếu phát hiện dự đoán sai -> dư lại kêt quả cũ 2 chu kì nữa
                 mem_ldmaskshift1 <= mem_ldmaskshift1;
                 mem_ldmaskshift2 <= mem_ldmaskshift2;
                 if(wrong_pred) holdplus_forMEM <= 1'b1;
+                csr_instret <= csr_instret;
             end 
 //            if(insLOADshift1) begin
                 //mem_addr <= mem_addrup;
@@ -1607,15 +1792,15 @@ RV32_Decoder Decoder_for_pred(
         end
     end
 
-
-    //Write back
+//38535601 tại đây do dự đoán sai nên lệnh thực thi tại đó không được thực hiện. hay nói cách khác địa chỉ nhảy tới khi ngắt 188 bị vô hiệu hóa bởi lệnh trước đó nữa bị dự đoán sai.
+//----------------------------WRITE BACK---------------------------//
     always @(posedge clksys) begin//sử dụng giá trị cũ của WBen
         if(!rst || !WBen) begin  //cho phep ghi nốt lệnh trước
             data_des <= VALUE_RESET32;
             regrd_shiftpl <= 5'h00;
             data_valid <= VALUE_RESET;
         end
-        else if(MEMen || !isRAW_Hazardrs1_2cyc_forJALR && !wait_peri) begin
+        else if(MEMen || (!isRAW_Hazardrs1_2cyc_forJALR && !wait_peri)) begin
             case(1'b1)
                 insLOADshift2: begin
                     data_des <= (en_pauseshift1)?mem_ldmaskshift1:mem_ldmaskshift2;
@@ -1642,7 +1827,6 @@ RV32_Decoder Decoder_for_pred(
                     csr_we <= 1'b0;
                 end
             endcase
-            csr_instret <= csr_instret + 1;
         end
     end
 `endif
